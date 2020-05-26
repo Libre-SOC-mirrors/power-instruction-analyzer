@@ -163,9 +163,9 @@ const TEST_VALUES: &[u64] = &[
 ];
 
 fn main() {
-    for &dividend in TEST_VALUES {
-        for &divisor in TEST_VALUES {
-            for &(f, name) in TestDivInput::FUNCTIONS {
+    for &(f, name) in TestDivInput::FUNCTIONS {
+        for &dividend in TEST_VALUES {
+            for &divisor in TEST_VALUES {
                 let inputs = TestDivInput {
                     dividend,
                     divisor,
