@@ -10,8 +10,13 @@ pub fn divdeo(inputs: TestDivInput) -> TestDivResult {
         overflow = true;
     } else {
         let result128 = dividend / divisor;
-        result = result128 as u64;
-        overflow = result128 as i64 as i128 != result128;
+        if result128 as i64 as i128 != result128 {
+            result = 0;
+            overflow = true;
+        } else {
+            result = result128 as u64;
+            overflow = false;
+        }
     }
     TestDivResult {
         result,
@@ -32,8 +37,13 @@ pub fn divdeuo(inputs: TestDivInput) -> TestDivResult {
         overflow = true;
     } else {
         let resultu128 = dividend / divisor;
-        result = resultu128 as u64;
-        overflow = resultu128 > u128::from(u64::max_value());
+        if resultu128 > u128::from(u64::max_value()) {
+            result = 0;
+            overflow = true;
+        } else {
+            result = resultu128 as u64;
+            overflow = false;
+        }
     }
     TestDivResult {
         result,
@@ -96,8 +106,13 @@ pub fn divweo(inputs: TestDivInput) -> TestDivResult {
         overflow = true;
     } else {
         let result64 = dividend / divisor;
-        result = result64 as u32 as u64;
-        overflow = result64 as i32 as i64 != result64;
+        if result64 as i32 as i64 != result64 {
+            result = 0;
+            overflow = true;
+        } else {
+            result = result64 as u32 as u64;
+            overflow = false;
+        }
     }
     TestDivResult {
         result,
@@ -118,8 +133,12 @@ pub fn divweuo(inputs: TestDivInput) -> TestDivResult {
         overflow = true;
     } else {
         let resultu64 = dividend / divisor;
-        result = resultu64 as u32 as u64;
-        overflow = resultu64 > u64::from(u32::max_value());
+        if resultu64 > u64::from(u32::max_value()) {
+            result = 0;
+        } else {
+            result = resultu64 as u32 as u64;
+        }
+        overflow = false;
     }
     TestDivResult {
         result,
