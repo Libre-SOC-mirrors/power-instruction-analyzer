@@ -135,10 +135,11 @@ pub fn divweuo(inputs: TestDivInput) -> TestDivResult {
         let resultu64 = dividend / divisor;
         if resultu64 > u64::from(u32::max_value()) {
             result = 0;
+            overflow = true;
         } else {
             result = resultu64 as u32 as u64;
+            overflow = false;
         }
-        overflow = false;
     }
     TestDivResult {
         result,
