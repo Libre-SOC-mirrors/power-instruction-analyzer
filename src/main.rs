@@ -209,7 +209,10 @@ make_div_functions! {
 
 const TEST_VALUES: &[u64] = &[
     0x0,
+    0x1,
+    0x2,
     0xFFFF_FFFF_FFFF_FFFF,
+    0xFFFF_FFFF_FFFF_FFFE,
     0x7FFF_FFFF_FFFF_FFFF,
     0x8000_0000_0000_0000,
     0x1234_5678_0000_0000,
