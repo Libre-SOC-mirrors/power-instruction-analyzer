@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // See Notices.txt for copyright information
 
-#![feature(llvm_asm)]
+#![cfg_attr(feature = "native_instrs", feature(llvm_asm))]
 
+mod instr_models;
 mod serde_hex;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OverflowFlags {
     pub overflow: bool,
     pub overflow32: bool,
@@ -22,7 +23,7 @@ impl OverflowFlags {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TestDivResult {
     #[serde(with = "serde_hex::SerdeHex")]
     pub result: u64,
@@ -40,13 +41,27 @@ pub struct TestDivInput {
     pub result_prev: u64,
 }
 
+fn is_false(v: &bool) -> bool {
+    !v
+}
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct TestDivCase {
     pub instr: TestDivInstr,
     #[serde(flatten)]
     pub inputs: TestDivInput,
-    #[serde(flatten)]
-    pub outputs: TestDivResult,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_outputs: Option<TestDivResult>,
+    pub model_outputs: TestDivResult,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub model_mismatch: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct WholeTest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub test_div_cases: Vec<TestDivCase>,
+    pub any_model_mismatch: bool,
 }
 
 macro_rules! make_div_functions {
@@ -73,13 +88,24 @@ macro_rules! make_div_functions {
         }
 
         impl TestDivInstr {
-            pub fn get_fn(self) -> fn(TestDivInput) -> TestDivResult {
+            #[cfg(feature = "native_instrs")]
+            pub fn get_native_fn(self) -> fn(TestDivInput) -> TestDivResult {
                 match self {
                     $(
-                        Self::$div_enum => TestDivInput::$div_fn,
+                        Self::$div_enum => native_instrs::$div_fn,
                     )+
                     $(
-                        Self::$rem_enum => TestDivInput::$rem_fn,
+                        Self::$rem_enum => native_instrs::$rem_fn,
+                    )+
+                }
+            }
+            pub fn get_model_fn(self) -> fn(TestDivInput) -> TestDivResult {
+                match self {
+                    $(
+                        Self::$div_enum => instr_models::$div_fn,
+                    )+
+                    $(
+                        Self::$rem_enum => instr_models::$rem_fn,
                     )+
                 }
             }
@@ -103,14 +129,17 @@ macro_rules! make_div_functions {
             ];
         }
 
-        impl TestDivInput {
+        #[cfg(feature = "native_instrs")]
+        mod native_instrs {
+            use super::*;
+
             $(
-                pub fn $div_fn(self) -> TestDivResult {
-                    let Self {
+                pub fn $div_fn(inputs: TestDivInput) -> TestDivResult {
+                    let TestDivInput {
                         dividend,
                         divisor,
                         result_prev,
-                    } = self;
+                    } = inputs;
                     let result: u64;
                     let xer: u64;
                     unsafe {
@@ -131,12 +160,12 @@ macro_rules! make_div_functions {
                 }
             )+
             $(
-                pub fn $rem_fn(self) -> TestDivResult {
-                    let Self {
+                pub fn $rem_fn(inputs: TestDivInput) -> TestDivResult {
+                    let TestDivInput {
                         dividend,
                         divisor,
                         result_prev,
-                    } = self;
+                    } = inputs;
                     let result: u64;
                     unsafe {
                         llvm_asm!(
@@ -160,14 +189,14 @@ macro_rules! make_div_functions {
 make_div_functions! {
     #[div]
     {
-        DivDE = divde("divdeo"),
-        DivDEU = divdeu("divdeuo"),
-        DivD = divd("divdo"),
-        DivDU = divdu("divduo"),
-        DivWE = divwe("divweo"),
-        DivWEU = divweu("divweuo"),
-        DivW = divw("divwo"),
-        DivWU = divwu("divwuo"),
+        DivDEO = divdeo("divdeo"),
+        DivDEUO = divdeuo("divdeuo"),
+        DivDO = divdo("divdo"),
+        DivDUO = divduo("divduo"),
+        DivWEO = divweo("divweo"),
+        DivWEUO = divweuo("divweuo"),
+        DivWO = divwo("divwo"),
+        DivWUO = divwuo("divwuo"),
     }
     #[rem]
     {
@@ -190,7 +219,8 @@ const TEST_VALUES: &[u64] = &[
 ];
 
 fn main() {
-    let mut cases = Vec::new();
+    let mut test_div_cases = Vec::new();
+    let mut any_model_mismatch = false;
     for &instr in TestDivInstr::VALUES {
         for &dividend in TEST_VALUES {
             for &divisor in TEST_VALUES {
@@ -199,15 +229,30 @@ fn main() {
                     divisor,
                     result_prev: 0xFECD_BA98_7654_3210,
                 };
-                let outputs = instr.get_fn()(inputs);
-                cases.push(TestDivCase {
+                let model_outputs = instr.get_model_fn()(inputs);
+                #[cfg(feature = "native_instrs")]
+                let native_outputs = Some(instr.get_native_fn()(inputs));
+                #[cfg(not(feature = "native_instrs"))]
+                let native_outputs = None;
+                let model_mismatch = match native_outputs {
+                    Some(native_outputs) if native_outputs != model_outputs => true,
+                    _ => false,
+                };
+                any_model_mismatch |= model_mismatch;
+                test_div_cases.push(TestDivCase {
                     instr,
                     inputs,
-                    outputs,
+                    native_outputs,
+                    model_outputs,
+                    model_mismatch,
                 });
             }
         }
     }
-    serde_json::to_writer_pretty(std::io::stdout().lock(), &cases).unwrap();
+    let whole_test = WholeTest {
+        test_div_cases,
+        any_model_mismatch,
+    };
+    serde_json::to_writer_pretty(std::io::stdout().lock(), &whole_test).unwrap();
     println!();
 }
