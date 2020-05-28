@@ -124,8 +124,8 @@ pub fn divweo(inputs: TestDivInput) -> TestDivResult {
 }
 
 pub fn divweuo(inputs: TestDivInput) -> TestDivResult {
-    let dividend = u64::from(inputs.dividend) << 32;
-    let divisor = u64::from(inputs.divisor);
+    let dividend = u64::from(inputs.dividend as u32) << 32;
+    let divisor = u64::from(inputs.divisor as u32);
     let overflow;
     let result;
     if divisor == 0 {
@@ -228,7 +228,7 @@ pub fn modsw(inputs: TestDivInput) -> TestDivResult {
     if divisor == 0 || (divisor == -1 && dividend == i32::min_value()) {
         result = 0;
     } else {
-        result = (dividend % divisor) as u32 as u64;
+        result = (dividend % divisor) as u64;
     }
     TestDivResult {
         result,
