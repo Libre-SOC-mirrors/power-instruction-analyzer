@@ -209,4 +209,5 @@ fn main() {
         }
     }
     serde_json::to_writer_pretty(std::io::stdout().lock(), &cases).unwrap();
+    println!();
 }
