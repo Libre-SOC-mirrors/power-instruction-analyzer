@@ -9,8 +9,14 @@ license = "LGPL-2.1-or-later"
 
 [features]
 native_instrs = []
-default = ["native_instrs"]
+python = ["pyo3"]
+python-extension = ["python", "pyo3/extension-module"]
+
+[lib]
+name = "power_instruction_analyzer"
+crate-type = ["rlib", "cdylib"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+pyo3 = { version = "0.11", optional = true }

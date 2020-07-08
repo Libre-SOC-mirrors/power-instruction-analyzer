@@ -1,6 +1,6 @@
-use crate::{OverflowFlags, TestDivInput, TestDivResult};
+use crate::{DivInput, DivResult, OverflowFlags};
 
-pub fn divdeo(inputs: TestDivInput) -> TestDivResult {
+pub fn divdeo(inputs: DivInput) -> DivResult {
     let dividend = i128::from(inputs.dividend as i64) << 64;
     let divisor = i128::from(inputs.divisor as i64);
     let overflow;
@@ -18,7 +18,7 @@ pub fn divdeo(inputs: TestDivInput) -> TestDivResult {
             overflow = false;
         }
     }
-    TestDivResult {
+    DivResult {
         result,
         overflow: Some(OverflowFlags {
             overflow,
@@ -27,7 +27,7 @@ pub fn divdeo(inputs: TestDivInput) -> TestDivResult {
     }
 }
 
-pub fn divdeuo(inputs: TestDivInput) -> TestDivResult {
+pub fn divdeuo(inputs: DivInput) -> DivResult {
     let dividend = u128::from(inputs.dividend) << 64;
     let divisor = u128::from(inputs.divisor);
     let overflow;
@@ -45,7 +45,7 @@ pub fn divdeuo(inputs: TestDivInput) -> TestDivResult {
             overflow = false;
         }
     }
-    TestDivResult {
+    DivResult {
         result,
         overflow: Some(OverflowFlags {
             overflow,
@@ -54,7 +54,7 @@ pub fn divdeuo(inputs: TestDivInput) -> TestDivResult {
     }
 }
 
-pub fn divdo(inputs: TestDivInput) -> TestDivResult {
+pub fn divdo(inputs: DivInput) -> DivResult {
     let dividend = inputs.dividend as i64;
     let divisor = inputs.divisor as i64;
     let overflow;
@@ -66,7 +66,7 @@ pub fn divdo(inputs: TestDivInput) -> TestDivResult {
         result = (dividend / divisor) as u64;
         overflow = false;
     }
-    TestDivResult {
+    DivResult {
         result,
         overflow: Some(OverflowFlags {
             overflow,
@@ -75,7 +75,7 @@ pub fn divdo(inputs: TestDivInput) -> TestDivResult {
     }
 }
 
-pub fn divduo(inputs: TestDivInput) -> TestDivResult {
+pub fn divduo(inputs: DivInput) -> DivResult {
     let dividend: u64 = inputs.dividend;
     let divisor: u64 = inputs.divisor;
     let overflow;
@@ -87,7 +87,7 @@ pub fn divduo(inputs: TestDivInput) -> TestDivResult {
         result = dividend / divisor;
         overflow = false;
     }
-    TestDivResult {
+    DivResult {
         result,
         overflow: Some(OverflowFlags {
             overflow,
@@ -96,7 +96,7 @@ pub fn divduo(inputs: TestDivInput) -> TestDivResult {
     }
 }
 
-pub fn divweo(inputs: TestDivInput) -> TestDivResult {
+pub fn divweo(inputs: DivInput) -> DivResult {
     let dividend = i64::from(inputs.dividend as i32) << 32;
     let divisor = i64::from(inputs.divisor as i32);
     let overflow;
@@ -114,7 +114,7 @@ pub fn divweo(inputs: TestDivInput) -> TestDivResult {
             overflow = false;
         }
     }
-    TestDivResult {
+    DivResult {
         result,
         overflow: Some(OverflowFlags {
             overflow,
@@ -123,7 +123,7 @@ pub fn divweo(inputs: TestDivInput) -> TestDivResult {
     }
 }
 
-pub fn divweuo(inputs: TestDivInput) -> TestDivResult {
+pub fn divweuo(inputs: DivInput) -> DivResult {
     let dividend = u64::from(inputs.dividend as u32) << 32;
     let divisor = u64::from(inputs.divisor as u32);
     let overflow;
@@ -141,7 +141,7 @@ pub fn divweuo(inputs: TestDivInput) -> TestDivResult {
             overflow = false;
         }
     }
-    TestDivResult {
+    DivResult {
         result,
         overflow: Some(OverflowFlags {
             overflow,
@@ -150,7 +150,7 @@ pub fn divweuo(inputs: TestDivInput) -> TestDivResult {
     }
 }
 
-pub fn divwo(inputs: TestDivInput) -> TestDivResult {
+pub fn divwo(inputs: DivInput) -> DivResult {
     let dividend = inputs.dividend as i32;
     let divisor = inputs.divisor as i32;
     let overflow;
@@ -162,7 +162,7 @@ pub fn divwo(inputs: TestDivInput) -> TestDivResult {
         result = (dividend / divisor) as u32 as u64;
         overflow = false;
     }
-    TestDivResult {
+    DivResult {
         result,
         overflow: Some(OverflowFlags {
             overflow,
@@ -171,7 +171,7 @@ pub fn divwo(inputs: TestDivInput) -> TestDivResult {
     }
 }
 
-pub fn divwuo(inputs: TestDivInput) -> TestDivResult {
+pub fn divwuo(inputs: DivInput) -> DivResult {
     let dividend = inputs.dividend as u32;
     let divisor = inputs.divisor as u32;
     let overflow;
@@ -183,7 +183,7 @@ pub fn divwuo(inputs: TestDivInput) -> TestDivResult {
         result = (dividend / divisor) as u64;
         overflow = false;
     }
-    TestDivResult {
+    DivResult {
         result,
         overflow: Some(OverflowFlags {
             overflow,
@@ -192,7 +192,7 @@ pub fn divwuo(inputs: TestDivInput) -> TestDivResult {
     }
 }
 
-pub fn modsd(inputs: TestDivInput) -> TestDivResult {
+pub fn modsd(inputs: DivInput) -> DivResult {
     let dividend = inputs.dividend as i64;
     let divisor = inputs.divisor as i64;
     let result;
@@ -201,13 +201,13 @@ pub fn modsd(inputs: TestDivInput) -> TestDivResult {
     } else {
         result = (dividend % divisor) as u64;
     }
-    TestDivResult {
+    DivResult {
         result,
         overflow: None,
     }
 }
 
-pub fn modud(inputs: TestDivInput) -> TestDivResult {
+pub fn modud(inputs: DivInput) -> DivResult {
     let dividend: u64 = inputs.dividend;
     let divisor: u64 = inputs.divisor;
     let result;
@@ -216,13 +216,13 @@ pub fn modud(inputs: TestDivInput) -> TestDivResult {
     } else {
         result = dividend % divisor;
     }
-    TestDivResult {
+    DivResult {
         result,
         overflow: None,
     }
 }
 
-pub fn modsw(inputs: TestDivInput) -> TestDivResult {
+pub fn modsw(inputs: DivInput) -> DivResult {
     let dividend = inputs.dividend as i32;
     let divisor = inputs.divisor as i32;
     let result;
@@ -231,13 +231,13 @@ pub fn modsw(inputs: TestDivInput) -> TestDivResult {
     } else {
         result = (dividend % divisor) as u64;
     }
-    TestDivResult {
+    DivResult {
         result,
         overflow: None,
     }
 }
 
-pub fn moduw(inputs: TestDivInput) -> TestDivResult {
+pub fn moduw(inputs: DivInput) -> DivResult {
     let dividend = inputs.dividend as u32;
     let divisor = inputs.divisor as u32;
     let result;
@@ -246,7 +246,7 @@ pub fn moduw(inputs: TestDivInput) -> TestDivResult {
     } else {
         result = (dividend % divisor) as u64;
     }
-    TestDivResult {
+    DivResult {
         result,
         overflow: None,
     }
