@@ -3,7 +3,7 @@
 
 #![cfg(feature = "python")]
 
-use crate::{DivInput, DivResult, OverflowFlags};
+use crate::{ConditionRegister, Instr, InstructionInput, InstructionResult, OverflowFlags};
 use pyo3::{prelude::*, wrap_pyfunction, PyObjectProtocol};
 use std::{borrow::Cow, cell::RefCell, fmt};
 
@@ -123,6 +123,7 @@ macro_rules! wrap_type {
         // use tt to work around PyO3 bug fixed in PyO3#832
         #[pyclass $($pyclass_args:tt)?]
         #[wrapped($value:ident: $wrapped:ident)]
+        #[args $new_args:tt]
         $(#[$meta:meta])*
         struct $wrapper:ident {
             $(
@@ -154,6 +155,7 @@ macro_rules! wrap_type {
         #[pymethods]
         impl $wrapper {
             #[new]
+            #[args $new_args]
             fn new($($field_name:$field_type),*) -> Self {
                 Self {
                     $value: $wrapped {
@@ -234,57 +236,112 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
         #[pymodule(m)]
         #[pyclass(name = OverflowFlags)]
         #[wrapped(value: OverflowFlags)]
-        #[text_signature = "(overflow, overflow32)"]
+        #[args(so, ov, ov32)]
+        #[text_signature = "(so, ov, ov32)"]
         struct PyOverflowFlags {
-            #[set = set_overflow]
-            overflow: bool,
-            #[set = set_overflow32]
-            overflow32: bool,
+            #[set = set_so]
+            so: bool,
+            #[set = set_ov]
+            ov: bool,
+            #[set = set_ov32]
+            ov32: bool,
         }
     }
 
     wrap_type! {
         #[pymodule(m)]
-        #[pyclass(name = DivInput)]
-        #[wrapped(value: DivInput)]
-        #[text_signature = "(dividend, divisor, result_prev)"]
-        struct PyDivInput {
-            #[set = set_dividend]
-            dividend: u64,
-            #[set = set_divisor]
-            divisor: u64,
-            #[set = set_result_prev]
-            result_prev: u64,
+        #[pyclass(name = ConditionRegister)]
+        #[wrapped(value: ConditionRegister)]
+        #[args(lt, gt, eq, so)]
+        #[text_signature = "(lt, gt, eq, so)"]
+        struct PyConditionRegister {
+            #[set = set_lt]
+            lt: bool,
+            #[set = set_gt]
+            gt: bool,
+            #[set = set_eq]
+            eq: bool,
+            #[set = set_so]
+            so: bool,
         }
     }
 
     wrap_type! {
         #[pymodule(m)]
-        #[pyclass(name = DivResult)]
-        #[wrapped(value: DivResult)]
-        #[text_signature = "(result, overflow)"]
-        struct PyDivResult {
-            #[set = set_result]
-            result: u64,
+        #[pyclass(name = InstructionInput)]
+        #[wrapped(value: InstructionInput)]
+        #[args(ra, rb, rc)]
+        #[text_signature = "(ra, rb, rc)"]
+        struct PyInstructionInput {
+            #[set = set_ra]
+            ra: u64,
+            #[set = set_rb]
+            rb: u64,
+            #[set = set_rc]
+            rc: u64,
+        }
+    }
+
+    wrap_type! {
+        #[pymodule(m)]
+        #[pyclass(name = InstructionResult)]
+        #[wrapped(value: InstructionResult)]
+        #[args(
+            rt="None",
+            overflow="None",
+            cr0="None",
+            cr1="None",
+            cr2="None",
+            cr3="None",
+            cr4="None",
+            cr5="None",
+            cr6="None",
+            cr7="None"
+        )]
+        #[text_signature = "(\
+            rt=None, \
+            overflow=None, \
+            cr0=None, \
+            cr1=None, \
+            cr2=None, \
+            cr3=None, \
+            cr4=None, \
+            cr5=None, \
+            cr6=None, \
+            cr7=None)"
+        ]
+        struct PyInstructionResult {
+            #[set = set_rt]
+            rt: Option<u64>,
             #[set = set_overflow]
             overflow: Option<OverflowFlags>,
+            #[set = set_cr0]
+            cr0: Option<ConditionRegister>,
+            #[set = set_cr1]
+            cr1: Option<ConditionRegister>,
+            #[set = set_cr2]
+            cr2: Option<ConditionRegister>,
+            #[set = set_cr3]
+            cr3: Option<ConditionRegister>,
+            #[set = set_cr4]
+            cr4: Option<ConditionRegister>,
+            #[set = set_cr5]
+            cr5: Option<ConditionRegister>,
+            #[set = set_cr6]
+            cr6: Option<ConditionRegister>,
+            #[set = set_cr7]
+            cr7: Option<ConditionRegister>,
         }
     }
-    wrap_instr_fns! {
-        #![pymodule(m)]
 
-        fn divdeo(inputs: DivInput) -> DivResult;
-        fn divdeuo(inputs: DivInput) -> DivResult;
-        fn divdo(inputs: DivInput) -> DivResult;
-        fn divduo(inputs: DivInput) -> DivResult;
-        fn divweo(inputs: DivInput) -> DivResult;
-        fn divweuo(inputs: DivInput) -> DivResult;
-        fn divwo(inputs: DivInput) -> DivResult;
-        fn divwuo(inputs: DivInput) -> DivResult;
-        fn modsd(inputs: DivInput) -> DivResult;
-        fn modud(inputs: DivInput) -> DivResult;
-        fn modsw(inputs: DivInput) -> DivResult;
-        fn moduw(inputs: DivInput) -> DivResult;
-    }
+    m.setattr(
+        "INSTRS",
+        Instr::VALUES
+            .iter()
+            .map(|&instr| instr.name())
+            .collect::<Vec<_>>(),
+    )?;
+
+    wrap_all_instr_fns!(m);
     Ok(())
 }

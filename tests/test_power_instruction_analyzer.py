@@ -8,99 +8,138 @@ import power_instruction_analyzer as pia
 class TestOverflowFlags(unittest.TestCase):
     def test_text_signature(self):
         self.assertEqual(pia.OverflowFlags.__text_signature__,
-                         "(overflow, overflow32)")
+                         "(so, ov, ov32)")
 
     def test_fields(self):
-        v = pia.OverflowFlags(overflow=False, overflow32=True)
-        self.assertEqual(v.overflow, False)
-        self.assertEqual(v.overflow32, True)
-        v.overflow = True
-        self.assertEqual(v.overflow, True)
-        v.overflow32 = False
-        self.assertEqual(v.overflow32, False)
+        v = pia.OverflowFlags(so=False, ov=False, ov32=True)
+        self.assertEqual(v.so, False)
+        self.assertEqual(v.ov, False)
+        self.assertEqual(v.ov32, True)
+        v.so = True
+        self.assertEqual(v.so, True)
+        v.ov = True
+        self.assertEqual(v.ov, True)
+        v.ov32 = False
+        self.assertEqual(v.ov32, False)
 
     def test_str_repr(self):
-        v = pia.OverflowFlags(overflow=False, overflow32=True)
+        v = pia.OverflowFlags(so=False, ov=False, ov32=True)
         self.assertEqual(str(v),
-                         '{"overflow":false,"overflow32":true}')
+                         '{"so":false,"ov":false,"ov32":true}')
         self.assertEqual(repr(v),
-                         "OverflowFlags(overflow=False, overflow32=True)")
+                         "OverflowFlags(so=False, ov=False, ov32=True)")
 
 
-class TestDivInput(unittest.TestCase):
+class TestConditionRegister(unittest.TestCase):
     def test_text_signature(self):
-        self.assertEqual(pia.DivInput.__text_signature__,
-                         "(dividend, divisor, result_prev)")
+        self.assertEqual(pia.ConditionRegister.__text_signature__,
+                         "(lt, gt, eq, so)")
 
     def test_fields(self):
-        v = pia.DivInput(dividend=123, divisor=456, result_prev=789)
-        self.assertEqual(v.dividend, 123)
-        self.assertEqual(v.divisor, 456)
-        self.assertEqual(v.result_prev, 789)
-        v.dividend = 1234
-        self.assertEqual(v.dividend, 1234)
-        v.divisor = 4567
-        self.assertEqual(v.divisor, 4567)
-        v.result_prev = 7890
-        self.assertEqual(v.result_prev, 7890)
+        v = pia.ConditionRegister(lt=False, gt=True, eq=False, so=True)
+        self.assertEqual(v.lt, False)
+        self.assertEqual(v.gt, True)
+        self.assertEqual(v.eq, False)
+        self.assertEqual(v.so, True)
+        v.lt = True
+        self.assertEqual(v.lt, True)
+        v.gt = False
+        self.assertEqual(v.gt, False)
+        v.eq = True
+        self.assertEqual(v.eq, True)
+        v.so = False
+        self.assertEqual(v.so, False)
 
     def test_str_repr(self):
-        v = pia.DivInput(dividend=123, divisor=456, result_prev=789)
+        v = pia.ConditionRegister(lt=False, gt=True, eq=False, so=True)
         self.assertEqual(str(v),
-                         '{"dividend":"0x7B","divisor":"0x1C8","result_prev":"0x315"}')
+                         '{"lt":false,"gt":true,"eq":false,"so":true}')
         self.assertEqual(repr(v),
-                         "DivInput(dividend=123, divisor=456, result_prev=789)")
+                         "ConditionRegister(lt=False, gt=True, eq=False, so=True)")
 
 
-class TestDivResult(unittest.TestCase):
+class TestInstructionInput(unittest.TestCase):
     def test_text_signature(self):
-        self.assertEqual(pia.DivResult.__text_signature__,
-                         "(result, overflow)")
+        self.assertEqual(pia.InstructionInput.__text_signature__,
+                         "(ra, rb, rc)")
 
     def test_fields(self):
-        v = pia.DivResult(result=1234,
-                          overflow=pia.OverflowFlags(overflow=False, overflow32=True))
-        self.assertEqual(v.result, 1234)
+        v = pia.InstructionInput(ra=123, rb=456, rc=789)
+        self.assertEqual(v.ra, 123)
+        self.assertEqual(v.rb, 456)
+        self.assertEqual(v.rc, 789)
+        v.ra = 1234
+        self.assertEqual(v.ra, 1234)
+        v.rb = 4567
+        self.assertEqual(v.rb, 4567)
+        v.rc = 7890
+        self.assertEqual(v.rc, 7890)
+
+    def test_str_repr(self):
+        v = pia.InstructionInput(ra=123, rb=456, rc=789)
+        self.assertEqual(str(v),
+                         '{"ra":"0x7B","rb":"0x1C8","rc":"0x315"}')
+        self.assertEqual(repr(v),
+                         "InstructionInput(ra=123, rb=456, rc=789)")
+
+
+class TestInstructionResult(unittest.TestCase):
+    def test_text_signature(self):
+        self.assertEqual(pia.InstructionResult.__text_signature__,
+                         "(rt=None, overflow=None, cr0=None, cr1=None, "
+                         + "cr2=None, cr3=None, cr4=None, cr5=None, cr6=None, cr7=None)")
+
+    def test_fields(self):
+        v = pia.InstructionResult(
+            overflow=pia.OverflowFlags(so=False, ov=False, ov32=True))
+        self.assertIsNone(v.rt)
         self.assertIsNotNone(v.overflow)
-        self.assertEqual(v.overflow.overflow, False)
-        self.assertEqual(v.overflow.overflow32, True)
-        v.result = 123
-        self.assertEqual(v.result, 123)
+        self.assertEqual(v.overflow.so, False)
+        self.assertEqual(v.overflow.ov, False)
+        self.assertEqual(v.overflow.ov32, True)
+        self.assertIsNone(v.cr0)
+        self.assertIsNone(v.cr1)
+        self.assertIsNone(v.cr2)
+        self.assertIsNone(v.cr3)
+        self.assertIsNone(v.cr4)
+        self.assertIsNone(v.cr5)
+        self.assertIsNone(v.cr6)
+        self.assertIsNone(v.cr7)
+        v.rt = 123
+        self.assertEqual(v.rt, 123)
         v.overflow = None
         self.assertIsNone(v.overflow)
+        v.cr2 = pia.ConditionRegister(lt=False, gt=False, eq=False, so=False)
+        self.assertIsNotNone(v.cr2)
 
     def test_str_repr(self):
-        v = pia.DivResult(result=1234,
-                          overflow=pia.OverflowFlags(overflow=False, overflow32=True))
+        v = pia.InstructionResult(
+            overflow=pia.OverflowFlags(so=False, ov=False, ov32=True),
+            cr0=pia.ConditionRegister(lt=True, gt=True, eq=True, so=True),
+            cr2=pia.ConditionRegister(lt=False, gt=False, eq=False, so=False))
         self.assertEqual(str(v),
-                         '{"result":"0x4D2","overflow":false,"overflow32":true}')
+                         '{"so":false,"ov":false,"ov32":true,'
+                         + '"cr0":{"lt":true,"gt":true,"eq":true,"so":true},'
+                         + '"cr2":{"lt":false,"gt":false,"eq":false,"so":false}}')
         self.assertEqual(repr(v),
-                         "DivResult(result=1234, overflow=OverflowFlags(overflow=False, overflow32=True))")
+                         "InstructionResult(rt=None, "
+                         + "overflow=OverflowFlags(so=False, ov=False, ov32=True), "
+                         + "cr0=ConditionRegister(lt=True, gt=True, eq=True, so=True), "
+                         + "cr1=None, "
+                         + "cr2=ConditionRegister(lt=False, gt=False, eq=False, so=False), "
+                         + "cr3=None, cr4=None, cr5=None, cr6=None, cr7=None)")
 
 
 class TestDivInstrs(unittest.TestCase):
-    cases = [
-        ("divdeo", '{"result":"0x0","overflow":true,"overflow32":true}'),
-        ("divdeuo", '{"result":"0x0","overflow":true,"overflow32":true}'),
-        ("divdo", '{"result":"0x36","overflow":false,"overflow32":false}'),
-        ("divduo", '{"result":"0x36","overflow":false,"overflow32":false}'),
-        ("divweo", '{"result":"0x0","overflow":true,"overflow32":true}'),
-        ("divweuo", '{"result":"0x0","overflow":true,"overflow32":true}'),
-        ("divwo", '{"result":"0x36","overflow":false,"overflow32":false}'),
-        ("divwuo", '{"result":"0x36","overflow":false,"overflow32":false}'),
-        ("modsd", '{"result":"0x10"}'),
-        ("modud", '{"result":"0x10"}'),
-        ("modsw", '{"result":"0x10"}'),
-        ("moduw", '{"result":"0x10"}'),
-    ]
-
     def test(self):
-        v = pia.DivInput(dividend=0x1234, divisor=0x56, result_prev=0x789)
-        for fn_name, expected in self.cases:
-            with self.subTest(fn_name=fn_name):
+        v = pia.InstructionInput(ra=0x1234, rb=0x56, rc=0x789)
+        for instr in pia.INSTRS:
+            with self.subTest(instr=instr):
+                fn_name = instr.replace(".", "_")
                 fn = getattr(pia, fn_name)
+                self.assertEqual(fn.__text_signature__, "(inputs)")
                 results = fn(v)
-                self.assertEqual(str(results), expected)
+                self.assertIsInstance(results, pia.InstructionResult)
 
 
 if __name__ == "__main__":

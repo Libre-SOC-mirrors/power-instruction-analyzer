@@ -1,8 +1,36 @@
-use crate::{DivInput, DivResult, OverflowFlags};
+use crate::{ConditionRegister, InstructionInput, InstructionResult, OverflowFlags};
 
-pub fn divdeo(inputs: DivInput) -> DivResult {
-    let dividend = i128::from(inputs.dividend as i64) << 64;
-    let divisor = i128::from(inputs.divisor as i64);
+macro_rules! create_instr_variants {
+    ($fn:ident, $fno:ident, $fn_:ident, $fno_:ident, $iwidth:ident) => {
+        pub fn $fn(inputs: InstructionInput) -> InstructionResult {
+            InstructionResult {
+                overflow: None,
+                ..$fno(inputs)
+            }
+        }
+        pub fn $fn_(inputs: InstructionInput) -> InstructionResult {
+            let mut retval = $fno_(inputs);
+            let mut cr0 = retval.cr0.as_mut().expect("expected cr0 to be set");
+            cr0.so = false;
+            retval.overflow = None;
+            retval
+        }
+        pub fn $fno_(inputs: InstructionInput) -> InstructionResult {
+            let mut retval = $fno(inputs);
+            let result = retval.rt.expect("expected rt to be set");
+            let so = retval.overflow.expect("expected overflow to be set").so;
+            let cr0 = ConditionRegister::from_signed_int(result as $iwidth, so);
+            retval.cr0 = Some(cr0);
+            retval
+        }
+    };
+}
+
+create_instr_variants!(divde, divdeo, divde_, divdeo_, i64);
+
+pub fn divdeo(inputs: InstructionInput) -> InstructionResult {
+    let dividend = i128::from(inputs.ra as i64) << 64;
+    let divisor = i128::from(inputs.rb as i64);
     let overflow;
     let result;
     if divisor == 0 || (divisor == -1 && dividend == i128::min_value()) {
@@ -18,18 +46,18 @@ pub fn divdeo(inputs: DivInput) -> DivResult {
             overflow = false;
         }
     }
-    DivResult {
-        result,
-        overflow: Some(OverflowFlags {
-            overflow,
-            overflow32: overflow,
-        }),
+    InstructionResult {
+        rt: Some(result),
+        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        ..InstructionResult::default()
     }
 }
 
-pub fn divdeuo(inputs: DivInput) -> DivResult {
-    let dividend = u128::from(inputs.dividend) << 64;
-    let divisor = u128::from(inputs.divisor);
+create_instr_variants!(divdeu, divdeuo, divdeu_, divdeuo_, i64);
+
+pub fn divdeuo(inputs: InstructionInput) -> InstructionResult {
+    let dividend = u128::from(inputs.ra) << 64;
+    let divisor = u128::from(inputs.rb);
     let overflow;
     let result;
     if divisor == 0 {
@@ -45,18 +73,18 @@ pub fn divdeuo(inputs: DivInput) -> DivResult {
             overflow = false;
         }
     }
-    DivResult {
-        result,
-        overflow: Some(OverflowFlags {
-            overflow,
-            overflow32: overflow,
-        }),
+    InstructionResult {
+        rt: Some(result),
+        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        ..InstructionResult::default()
     }
 }
 
-pub fn divdo(inputs: DivInput) -> DivResult {
-    let dividend = inputs.dividend as i64;
-    let divisor = inputs.divisor as i64;
+create_instr_variants!(divd, divdo, divd_, divdo_, i64);
+
+pub fn divdo(inputs: InstructionInput) -> InstructionResult {
+    let dividend = inputs.ra as i64;
+    let divisor = inputs.rb as i64;
     let overflow;
     let result;
     if divisor == 0 || (divisor == -1 && dividend == i64::min_value()) {
@@ -66,18 +94,18 @@ pub fn divdo(inputs: DivInput) -> DivResult {
         result = (dividend / divisor) as u64;
         overflow = false;
     }
-    DivResult {
-        result,
-        overflow: Some(OverflowFlags {
-            overflow,
-            overflow32: overflow,
-        }),
+    InstructionResult {
+        rt: Some(result),
+        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        ..InstructionResult::default()
     }
 }
 
-pub fn divduo(inputs: DivInput) -> DivResult {
-    let dividend: u64 = inputs.dividend;
-    let divisor: u64 = inputs.divisor;
+create_instr_variants!(divdu, divduo, divdu_, divduo_, i64);
+
+pub fn divduo(inputs: InstructionInput) -> InstructionResult {
+    let dividend: u64 = inputs.ra;
+    let divisor: u64 = inputs.rb;
     let overflow;
     let result;
     if divisor == 0 {
@@ -87,18 +115,18 @@ pub fn divduo(inputs: DivInput) -> DivResult {
         result = dividend / divisor;
         overflow = false;
     }
-    DivResult {
-        result,
-        overflow: Some(OverflowFlags {
-            overflow,
-            overflow32: overflow,
-        }),
+    InstructionResult {
+        rt: Some(result),
+        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        ..InstructionResult::default()
     }
 }
 
-pub fn divweo(inputs: DivInput) -> DivResult {
-    let dividend = i64::from(inputs.dividend as i32) << 32;
-    let divisor = i64::from(inputs.divisor as i32);
+create_instr_variants!(divwe, divweo, divwe_, divweo_, i32);
+
+pub fn divweo(inputs: InstructionInput) -> InstructionResult {
+    let dividend = i64::from(inputs.ra as i32) << 32;
+    let divisor = i64::from(inputs.rb as i32);
     let overflow;
     let result;
     if divisor == 0 || (divisor == -1 && dividend == i64::min_value()) {
@@ -114,18 +142,18 @@ pub fn divweo(inputs: DivInput) -> DivResult {
             overflow = false;
         }
     }
-    DivResult {
-        result,
-        overflow: Some(OverflowFlags {
-            overflow,
-            overflow32: overflow,
-        }),
+    InstructionResult {
+        rt: Some(result),
+        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        ..InstructionResult::default()
     }
 }
 
-pub fn divweuo(inputs: DivInput) -> DivResult {
-    let dividend = u64::from(inputs.dividend as u32) << 32;
-    let divisor = u64::from(inputs.divisor as u32);
+create_instr_variants!(divweu, divweuo, divweu_, divweuo_, i32);
+
+pub fn divweuo(inputs: InstructionInput) -> InstructionResult {
+    let dividend = u64::from(inputs.ra as u32) << 32;
+    let divisor = u64::from(inputs.rb as u32);
     let overflow;
     let result;
     if divisor == 0 {
@@ -141,18 +169,18 @@ pub fn divweuo(inputs: DivInput) -> DivResult {
             overflow = false;
         }
     }
-    DivResult {
-        result,
-        overflow: Some(OverflowFlags {
-            overflow,
-            overflow32: overflow,
-        }),
+    InstructionResult {
+        rt: Some(result),
+        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        ..InstructionResult::default()
     }
 }
 
-pub fn divwo(inputs: DivInput) -> DivResult {
-    let dividend = inputs.dividend as i32;
-    let divisor = inputs.divisor as i32;
+create_instr_variants!(divw, divwo, divw_, divwo_, i32);
+
+pub fn divwo(inputs: InstructionInput) -> InstructionResult {
+    let dividend = inputs.ra as i32;
+    let divisor = inputs.rb as i32;
     let overflow;
     let result;
     if divisor == 0 || (divisor == -1 && dividend == i32::min_value()) {
@@ -162,18 +190,18 @@ pub fn divwo(inputs: DivInput) -> DivResult {
         result = (dividend / divisor) as u32 as u64;
         overflow = false;
     }
-    DivResult {
-        result,
-        overflow: Some(OverflowFlags {
-            overflow,
-            overflow32: overflow,
-        }),
+    InstructionResult {
+        rt: Some(result),
+        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        ..InstructionResult::default()
     }
 }
 
-pub fn divwuo(inputs: DivInput) -> DivResult {
-    let dividend = inputs.dividend as u32;
-    let divisor = inputs.divisor as u32;
+create_instr_variants!(divwu, divwuo, divwu_, divwuo_, i32);
+
+pub fn divwuo(inputs: InstructionInput) -> InstructionResult {
+    let dividend = inputs.ra as u32;
+    let divisor = inputs.rb as u32;
     let overflow;
     let result;
     if divisor == 0 {
@@ -183,71 +211,69 @@ pub fn divwuo(inputs: DivInput) -> DivResult {
         result = (dividend / divisor) as u64;
         overflow = false;
     }
-    DivResult {
-        result,
-        overflow: Some(OverflowFlags {
-            overflow,
-            overflow32: overflow,
-        }),
+    InstructionResult {
+        rt: Some(result),
+        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        ..InstructionResult::default()
     }
 }
 
-pub fn modsd(inputs: DivInput) -> DivResult {
-    let dividend = inputs.dividend as i64;
-    let divisor = inputs.divisor as i64;
+pub fn modsd(inputs: InstructionInput) -> InstructionResult {
+    let dividend = inputs.ra as i64;
+    let divisor = inputs.rb as i64;
     let result;
     if divisor == 0 || (divisor == -1 && dividend == i64::min_value()) {
         result = 0;
     } else {
         result = (dividend % divisor) as u64;
     }
-    DivResult {
-        result,
-        overflow: None,
+    InstructionResult {
+        rt: Some(result),
+        ..InstructionResult::default()
     }
 }
 
-pub fn modud(inputs: DivInput) -> DivResult {
-    let dividend: u64 = inputs.dividend;
-    let divisor: u64 = inputs.divisor;
+pub fn modud(inputs: InstructionInput) -> InstructionResult {
+    let dividend: u64 = inputs.ra;
+    let divisor: u64 = inputs.rb;
     let result;
     if divisor == 0 {
         result = 0;
     } else {
         result = dividend % divisor;
     }
-    DivResult {
-        result,
-        overflow: None,
+    InstructionResult {
+        rt: Some(result),
+        ..InstructionResult::default()
     }
 }
 
-pub fn modsw(inputs: DivInput) -> DivResult {
-    let dividend = inputs.dividend as i32;
-    let divisor = inputs.divisor as i32;
+pub fn modsw(inputs: InstructionInput) -> InstructionResult {
+    let dividend = inputs.ra as i32;
+    let divisor = inputs.rb as i32;
     let result;
     if divisor == 0 || (divisor == -1 && dividend == i32::min_value()) {
         result = 0;
     } else {
         result = (dividend % divisor) as u64;
     }
-    DivResult {
-        result,
-        overflow: None,
+    InstructionResult {
+        rt: Some(result),
+        ..InstructionResult::default()
     }
 }
 
-pub fn moduw(inputs: DivInput) -> DivResult {
-    let dividend = inputs.dividend as u32;
-    let divisor = inputs.divisor as u32;
+pub fn moduw(inputs: InstructionInput) -> InstructionResult {
+    let dividend = inputs.ra as u32;
+    let divisor = inputs.rb as u32;
     let result;
     if divisor == 0 {
         result = 0;
     } else {
         result = (dividend % divisor) as u64;
     }
-    DivResult {
-        result,
-        overflow: None,
+    InstructionResult {
+        rt: Some(result),
+        ..InstructionResult::default()
     }
 }
