@@ -134,7 +134,8 @@ pub fn divduo(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
-create_instr_variants_ov_cr!(divwe, divweo, divwe_, divweo_, i32);
+// ISA doesn't define compare results -- POWER9 apparently uses i64 instead of i32
+create_instr_variants_ov_cr!(divwe, divweo, divwe_, divweo_, i64);
 
 pub fn divweo(inputs: InstructionInput) -> InstructionResult {
     let dividend = i64::from(inputs.ra as i32) << 32;
@@ -161,7 +162,8 @@ pub fn divweo(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
-create_instr_variants_ov_cr!(divweu, divweuo, divweu_, divweuo_, i32);
+// ISA doesn't define compare results -- POWER9 apparently uses i64 instead of i32
+create_instr_variants_ov_cr!(divweu, divweuo, divweu_, divweuo_, i64);
 
 pub fn divweuo(inputs: InstructionInput) -> InstructionResult {
     let dividend = u64::from(inputs.ra as u32) << 32;
@@ -188,7 +190,8 @@ pub fn divweuo(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
-create_instr_variants_ov_cr!(divw, divwo, divw_, divwo_, i32);
+// ISA doesn't define compare results -- POWER9 apparently uses i64 instead of i32
+create_instr_variants_ov_cr!(divw, divwo, divw_, divwo_, i64);
 
 pub fn divwo(inputs: InstructionInput) -> InstructionResult {
     let dividend = inputs.ra as i32;
@@ -209,7 +212,8 @@ pub fn divwo(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
-create_instr_variants_ov_cr!(divwu, divwuo, divwu_, divwuo_, i32);
+// ISA doesn't define compare results -- POWER9 apparently uses i64 instead of i32
+create_instr_variants_ov_cr!(divwu, divwuo, divwu_, divwuo_, i64);
 
 pub fn divwuo(inputs: InstructionInput) -> InstructionResult {
     let dividend = inputs.ra as u32;
@@ -293,10 +297,10 @@ pub fn moduw(inputs: InstructionInput) -> InstructionResult {
 create_instr_variants_ov_cr!(mullw, mullwo, mullw_, mullwo_, i32);
 
 pub fn mullwo(inputs: InstructionInput) -> InstructionResult {
-    let ra = inputs.ra as i32;
-    let rb = inputs.rb as i32;
+    let ra = inputs.ra as i32 as i64;
+    let rb = inputs.rb as i32 as i64;
     let result = ra.wrapping_mul(rb) as u64;
-    let overflow = ra.checked_mul(rb).is_none();
+    let overflow = result as i32 as i64 != result as i64;
     InstructionResult {
         rt: Some(result),
         overflow: Some(OverflowFlags::from_overflow(overflow)),
