@@ -182,16 +182,16 @@ macro_rules! map_instr_asm_args {
         concat!(" ", $string0, $(", ", $strings),*)
     };
     ([$($args:ident)*], [rt $($results:ident)*], [$($strings:literal)*]) => {
-        map_instr_asm_args!([$($args)*], [$($results)*], ["$0" $($strings)*])
+        map_instr_asm_args!([$($args)*], [$($results)*], [$($strings)* "$0"])
     };
     ([ra $($args:ident)*], [$($results:ident)*], [$($strings:literal)*]) => {
-        map_instr_asm_args!([$($args)*], [$($results)*], ["$3" $($strings)*])
+        map_instr_asm_args!([$($args)*], [$($results)*], [$($strings)* "$3"])
     };
     ([rb $($args:ident)*], [$($results:ident)*], [$($strings:literal)*]) => {
-        map_instr_asm_args!([$($args)*], [$($results)*], ["$4" $($strings)*])
+        map_instr_asm_args!([$($args)*], [$($results)*], [$($strings)* "$4"])
     };
     ([rc $($args:ident)*], [$($results:ident)*], [$($strings:literal)*]) => {
-        map_instr_asm_args!([$($args)*], [$($results)*], ["$5" $($strings)*])
+        map_instr_asm_args!([$($args)*], [$($results)*], [$($strings)* "$5"])
     };
     ([$($args:ident)*], [ov $($results:ident)*], [$($strings:literal)*]) => {
         map_instr_asm_args!([$($args)*], [$($results)*], [$($strings)*])
