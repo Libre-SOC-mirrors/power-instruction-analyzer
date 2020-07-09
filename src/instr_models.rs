@@ -294,7 +294,7 @@ pub fn moduw(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
-create_instr_variants_ov_cr!(mullw, mullwo, mullw_, mullwo_, i32);
+create_instr_variants_ov_cr!(mullw, mullwo, mullw_, mullwo_, i64);
 
 pub fn mullwo(inputs: InstructionInput) -> InstructionResult {
     let ra = inputs.ra as i32 as i64;
