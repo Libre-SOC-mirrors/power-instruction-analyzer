@@ -566,6 +566,96 @@ instrs! {
     fn moduw(ra, rb) -> (rt) {
         "moduw"
     }
+
+    // mullw
+    #[enumerant = MulLW]
+    fn mullw(ra, rb) -> (rt) {
+        "mullw"
+    }
+    #[enumerant = MulLWO]
+    fn mullwo(ra, rb) -> (rt, ov) {
+        "mullwo"
+    }
+    #[enumerant = MulLW_]
+    fn mullw_(ra, rb) -> (rt, cr0) {
+        "mullw."
+    }
+    #[enumerant = MulLWO_]
+    fn mullwo_(ra, rb) -> (rt, ov, cr0) {
+        "mullwo."
+    }
+
+    // mulhw
+    #[enumerant = MulHW]
+    fn mulhw(ra, rb) -> (rt) {
+        "mulhw"
+    }
+    #[enumerant = MulHW_]
+    fn mulhw_(ra, rb) -> (rt, cr0) {
+        "mulhw."
+    }
+
+    // mulhwu
+    #[enumerant = MulHWU]
+    fn mulhwu(ra, rb) -> (rt) {
+        "mulhwu"
+    }
+    #[enumerant = MulHWU_]
+    fn mulhwu_(ra, rb) -> (rt, cr0) {
+        "mulhwu."
+    }
+
+    // mulld
+    #[enumerant = MulLD]
+    fn mulld(ra, rb) -> (rt) {
+        "mulld"
+    }
+    #[enumerant = MulLDO]
+    fn mulldo(ra, rb) -> (rt, ov) {
+        "mulldo"
+    }
+    #[enumerant = MulLD_]
+    fn mulld_(ra, rb) -> (rt, cr0) {
+        "mulld."
+    }
+    #[enumerant = MulLDO_]
+    fn mulldo_(ra, rb) -> (rt, ov, cr0) {
+        "mulldo."
+    }
+
+    // mulhd
+    #[enumerant = MulHD]
+    fn mulhd(ra, rb) -> (rt) {
+        "mulhd"
+    }
+    #[enumerant = MulHD_]
+    fn mulhd_(ra, rb) -> (rt, cr0) {
+        "mulhd."
+    }
+
+    // mulhdu
+    #[enumerant = MulHDU]
+    fn mulhdu(ra, rb) -> (rt) {
+        "mulhdu"
+    }
+    #[enumerant = MulHDU_]
+    fn mulhdu_(ra, rb) -> (rt, cr0) {
+        "mulhdu."
+    }
+
+    // madd*
+    #[enumerant = MAddHD]
+    fn maddhd(ra, rb, rc) -> (rt) {
+        "maddhd"
+    }
+    #[enumerant = MAddHDU]
+    fn maddhdu(ra, rb, rc) -> (rt) {
+        "maddhdu"
+    }
+    #[enumerant = MAddLD]
+    fn maddld(ra, rb, rc) -> (rt) {
+        "maddld"
+    }
 }
 
 // must be after instrs macro call since it uses a macro definition

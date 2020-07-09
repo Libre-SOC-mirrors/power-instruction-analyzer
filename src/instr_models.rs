@@ -1,6 +1,6 @@
 use crate::{ConditionRegister, InstructionInput, InstructionResult, OverflowFlags};
 
-macro_rules! create_instr_variants {
+macro_rules! create_instr_variants_ov_cr {
     ($fn:ident, $fno:ident, $fn_:ident, $fno_:ident, $iwidth:ident) => {
         pub fn $fn(inputs: InstructionInput) -> InstructionResult {
             InstructionResult {
@@ -26,7 +26,19 @@ macro_rules! create_instr_variants {
     };
 }
 
-create_instr_variants!(divde, divdeo, divde_, divdeo_, i64);
+macro_rules! create_instr_variants_cr {
+    ($fn:ident, $fn_:ident, $iwidth:ident) => {
+        pub fn $fn_(inputs: InstructionInput) -> InstructionResult {
+            let mut retval = $fn(inputs);
+            let result = retval.rt.expect("expected rt to be set");
+            let cr0 = ConditionRegister::from_signed_int(result as $iwidth, false);
+            retval.cr0 = Some(cr0);
+            retval
+        }
+    };
+}
+
+create_instr_variants_ov_cr!(divde, divdeo, divde_, divdeo_, i64);
 
 pub fn divdeo(inputs: InstructionInput) -> InstructionResult {
     let dividend = i128::from(inputs.ra as i64) << 64;
@@ -53,7 +65,7 @@ pub fn divdeo(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
-create_instr_variants!(divdeu, divdeuo, divdeu_, divdeuo_, i64);
+create_instr_variants_ov_cr!(divdeu, divdeuo, divdeu_, divdeuo_, i64);
 
 pub fn divdeuo(inputs: InstructionInput) -> InstructionResult {
     let dividend = u128::from(inputs.ra) << 64;
@@ -80,7 +92,7 @@ pub fn divdeuo(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
-create_instr_variants!(divd, divdo, divd_, divdo_, i64);
+create_instr_variants_ov_cr!(divd, divdo, divd_, divdo_, i64);
 
 pub fn divdo(inputs: InstructionInput) -> InstructionResult {
     let dividend = inputs.ra as i64;
@@ -101,7 +113,7 @@ pub fn divdo(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
-create_instr_variants!(divdu, divduo, divdu_, divduo_, i64);
+create_instr_variants_ov_cr!(divdu, divduo, divdu_, divduo_, i64);
 
 pub fn divduo(inputs: InstructionInput) -> InstructionResult {
     let dividend: u64 = inputs.ra;
@@ -122,7 +134,7 @@ pub fn divduo(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
-create_instr_variants!(divwe, divweo, divwe_, divweo_, i32);
+create_instr_variants_ov_cr!(divwe, divweo, divwe_, divweo_, i32);
 
 pub fn divweo(inputs: InstructionInput) -> InstructionResult {
     let dividend = i64::from(inputs.ra as i32) << 32;
@@ -149,7 +161,7 @@ pub fn divweo(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
-create_instr_variants!(divweu, divweuo, divweu_, divweuo_, i32);
+create_instr_variants_ov_cr!(divweu, divweuo, divweu_, divweuo_, i32);
 
 pub fn divweuo(inputs: InstructionInput) -> InstructionResult {
     let dividend = u64::from(inputs.ra as u32) << 32;
@@ -176,7 +188,7 @@ pub fn divweuo(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
-create_instr_variants!(divw, divwo, divw_, divwo_, i32);
+create_instr_variants_ov_cr!(divw, divwo, divw_, divwo_, i32);
 
 pub fn divwo(inputs: InstructionInput) -> InstructionResult {
     let dividend = inputs.ra as i32;
@@ -197,7 +209,7 @@ pub fn divwo(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
-create_instr_variants!(divwu, divwuo, divwu_, divwuo_, i32);
+create_instr_variants_ov_cr!(divwu, divwuo, divwu_, divwuo_, i32);
 
 pub fn divwuo(inputs: InstructionInput) -> InstructionResult {
     let dividend = inputs.ra as u32;
@@ -272,6 +284,118 @@ pub fn moduw(inputs: InstructionInput) -> InstructionResult {
     } else {
         result = (dividend % divisor) as u64;
     }
+    InstructionResult {
+        rt: Some(result),
+        ..InstructionResult::default()
+    }
+}
+
+create_instr_variants_ov_cr!(mullw, mullwo, mullw_, mullwo_, i32);
+
+pub fn mullwo(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.ra as i32;
+    let rb = inputs.rb as i32;
+    let result = ra.wrapping_mul(rb) as u64;
+    let overflow = ra.checked_mul(rb).is_none();
+    InstructionResult {
+        rt: Some(result),
+        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        ..InstructionResult::default()
+    }
+}
+
+create_instr_variants_cr!(mulhw, mulhw_, i32);
+
+pub fn mulhw(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.ra as i32 as i64;
+    let rb = inputs.rb as i32 as i64;
+    let result = ((ra * rb) >> 32) as i32;
+    let result = result as u64;
+    InstructionResult {
+        rt: Some(result),
+        ..InstructionResult::default()
+    }
+}
+
+create_instr_variants_cr!(mulhwu, mulhwu_, i32);
+
+pub fn mulhwu(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.ra as u32 as u64;
+    let rb = inputs.rb as u32 as u64;
+    let result = ((ra * rb) >> 32) as u32;
+    let result = result as u64;
+    InstructionResult {
+        rt: Some(result),
+        ..InstructionResult::default()
+    }
+}
+
+create_instr_variants_ov_cr!(mulld, mulldo, mulld_, mulldo_, i64);
+
+pub fn mulldo(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.ra as i64;
+    let rb = inputs.rb as i64;
+    let result = ra.wrapping_mul(rb) as u64;
+    let overflow = ra.checked_mul(rb).is_none();
+    InstructionResult {
+        rt: Some(result),
+        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        ..InstructionResult::default()
+    }
+}
+
+create_instr_variants_cr!(mulhd, mulhd_, i64);
+
+pub fn mulhd(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.ra as i64 as i128;
+    let rb = inputs.rb as i64 as i128;
+    let result = ((ra * rb) >> 64) as i64;
+    let result = result as u64;
+    InstructionResult {
+        rt: Some(result),
+        ..InstructionResult::default()
+    }
+}
+
+create_instr_variants_cr!(mulhdu, mulhdu_, i64);
+
+pub fn mulhdu(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.ra as u128;
+    let rb = inputs.rb as u128;
+    let result = ((ra * rb) >> 64) as u64;
+    InstructionResult {
+        rt: Some(result),
+        ..InstructionResult::default()
+    }
+}
+
+pub fn maddhd(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.ra as i64 as i128;
+    let rb = inputs.rb as i64 as i128;
+    let rc = inputs.rc as i64 as i128;
+    let result = ((ra * rb + rc) >> 64) as u64;
+    InstructionResult {
+        rt: Some(result),
+        ..InstructionResult::default()
+    }
+}
+
+pub fn maddhdu(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.ra as u128;
+    let rb = inputs.rb as u128;
+    let rc = inputs.rc as u128;
+    let result = ((ra * rb + rc) >> 64) as u64;
+    InstructionResult {
+        rt: Some(result),
+        ..InstructionResult::default()
+    }
+}
+
+pub fn maddld(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.ra as i64;
+    let rb = inputs.rb as i64;
+    let rc = inputs.rc as i64;
+    let result = ra.wrapping_mul(rb).wrapping_add(rc) as u64;
     InstructionResult {
         rt: Some(result),
         ..InstructionResult::default()
