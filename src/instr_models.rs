@@ -313,8 +313,9 @@ create_instr_variants_cr!(mulhw, mulhw_, i32);
 pub fn mulhw(inputs: InstructionInput) -> InstructionResult {
     let ra = inputs.ra as i32 as i64;
     let rb = inputs.rb as i32 as i64;
-    let result = ((ra * rb) >> 32) as i32;
-    let result = result as u64;
+    let result = (ra * rb) >> 32;
+    let mut result = result as u32 as u64;
+    result |= result << 32;
     InstructionResult {
         rt: Some(result),
         ..InstructionResult::default()
@@ -326,8 +327,9 @@ create_instr_variants_cr!(mulhwu, mulhwu_, i32);
 pub fn mulhwu(inputs: InstructionInput) -> InstructionResult {
     let ra = inputs.ra as u32 as u64;
     let rb = inputs.rb as u32 as u64;
-    let result = ((ra * rb) >> 32) as u32;
-    let result = result as u64;
+    let result = (ra * rb) >> 32;
+    let mut result = result as u32 as u64;
+    result |= result << 32;
     InstructionResult {
         rt: Some(result),
         ..InstructionResult::default()
