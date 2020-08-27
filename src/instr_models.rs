@@ -38,6 +38,20 @@ macro_rules! create_instr_variants_cr {
     };
 }
 
+create_instr_variants_ov_cr!(add, addo, add_, addo_, i64);
+
+pub fn addo(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.ra as i64;
+    let rb = inputs.rb as i64;
+    let (result, overflow) = ra.overflowing_add(rb);
+    let result = result as u64;
+    InstructionResult {
+        rt: Some(result),
+        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        ..InstructionResult::default()
+    }
+}
+
 create_instr_variants_ov_cr!(divde, divdeo, divde_, divdeo_, i64);
 
 pub fn divdeo(inputs: InstructionInput) -> InstructionResult {

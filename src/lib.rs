@@ -312,8 +312,8 @@ macro_rules! instr {
                         "mfxer $1\n",
                         "mfcr $2\n",
                     )
-                    : "=&r"(rt), "=&r"(xer), "=&r"(cr)
-                    : "r"(ra), "r"(rb), "r"(rc), "r"(0u64), "r"(!0x8000_0000u64)
+                    : "=&b"(rt), "=&b"(xer), "=&b"(cr)
+                    : "b"(ra), "b"(rb), "b"(rc), "b"(0u64), "b"(!0x8000_0000u64)
                     : "xer", "cr");
             }
             let mut retval = InstructionResult::default();
@@ -405,6 +405,24 @@ macro_rules! instrs {
 }
 
 instrs! {
+    // add
+    #[enumerant = Add]
+    fn add(ra, rb) -> (rt) {
+        "add"
+    }
+    #[enumerant = AddO]
+    fn addo(ra, rb) -> (rt, ov) {
+        "addo"
+    }
+    #[enumerant = Add_]
+    fn add_(ra, rb) -> (rt, cr0) {
+        "add."
+    }
+    #[enumerant = AddO_]
+    fn addo_(ra, rb) -> (rt, ov, cr0) {
+        "addo."
+    }
+
     // divde
     #[enumerant = DivDE]
     fn divde(ra, rb) -> (rt) {
