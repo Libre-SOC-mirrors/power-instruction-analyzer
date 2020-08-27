@@ -405,23 +405,23 @@ macro_rules! instrs {
 }
 
 instrs! {
-    // add
-    #[enumerant = Add]
-    fn add(ra, rb) -> (rt) {
-        "add"
-    }
-    #[enumerant = AddO]
-    fn addo(ra, rb) -> (rt, ov) {
-        "addo"
-    }
-    #[enumerant = Add_]
-    fn add_(ra, rb) -> (rt, cr0) {
-        "add."
-    }
-    #[enumerant = AddO_]
-    fn addo_(ra, rb) -> (rt, ov, cr0) {
-        "addo."
-    }
+    // // add
+    // #[enumerant = Add]
+    // fn add(ra, rb) -> (rt) {
+    //     "add"
+    // }
+    // #[enumerant = AddO]
+    // fn addo(ra, rb) -> (rt, ov) {
+    //     "addo"
+    // }
+    // #[enumerant = Add_]
+    // fn add_(ra, rb) -> (rt, cr0) {
+    //     "add."
+    // }
+    // #[enumerant = AddO_]
+    // fn addo_(ra, rb) -> (rt, ov, cr0) {
+    //     "addo."
+    // }
 
     // divde
     #[enumerant = DivDE]
