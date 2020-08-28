@@ -3,7 +3,9 @@
 
 #![cfg(feature = "python")]
 
-use crate::{ConditionRegister, Instr, InstructionInput, InstructionResult, OverflowFlags};
+use crate::{
+    CarryFlags, ConditionRegister, Instr, InstructionInput, InstructionResult, OverflowFlags,
+};
 use pyo3::{prelude::*, wrap_pyfunction, PyObjectProtocol};
 use std::{borrow::Cow, cell::RefCell, fmt};
 
@@ -250,6 +252,20 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
 
     wrap_type! {
         #[pymodule(m)]
+        #[pyclass(name = CarryFlags)]
+        #[wrapped(value: CarryFlags)]
+        #[args(ca, ca32)]
+        #[text_signature = "(ca, ca32)"]
+        struct PyCarryFlags {
+            #[set = set_ca]
+            ca: bool,
+            #[set = set_ca32]
+            ca32: bool,
+        }
+    }
+
+    wrap_type! {
+        #[pymodule(m)]
         #[pyclass(name = ConditionRegister)]
         #[wrapped(value: ConditionRegister)]
         #[args(lt, gt, eq, so)]
@@ -270,15 +286,17 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
         #[pymodule(m)]
         #[pyclass(name = InstructionInput)]
         #[wrapped(value: InstructionInput)]
-        #[args(ra, rb, rc)]
-        #[text_signature = "(ra, rb, rc)"]
+        #[args(ra, rb="None", rc="None", carry="None")]
+        #[text_signature = "(ra, rb, rc, carry)"]
         struct PyInstructionInput {
             #[set = set_ra]
             ra: u64,
             #[set = set_rb]
-            rb: u64,
+            rb: Option<u64>,
             #[set = set_rc]
-            rc: u64,
+            rc: Option<u64>,
+            #[set = set_carry]
+            carry: Option<CarryFlags>,
         }
     }
 

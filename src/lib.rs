@@ -12,30 +12,87 @@ mod serde_hex;
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
+    fmt,
     ops::{Index, IndexMut},
 };
+use serde_plain::forward_display_to_serde;
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct OverflowFlags {
-    pub so: bool,
-    pub ov: bool,
-    pub ov32: bool,
+fn is_default<T: Default + PartialEq>(v: &T) -> bool {
+    T::default() == *v
+}
+
+// powerpc bit numbers count from MSB to LSB
+const fn get_xer_bit_mask(powerpc_bit_num: usize) -> u64 {
+    (1 << 63) >> powerpc_bit_num
+}
+
+macro_rules! xer_subset {
+    (
+        $struct_vis:vis struct $struct_name:ident {
+            $(
+                #[bit($powerpc_bit_num:expr, $mask_name:ident)]
+                $field_vis:vis $field_name:ident: bool,
+            )+
+        }
+    ) => {
+        #[derive(Default, Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+        $struct_vis struct $struct_name {
+            $(
+                $field_vis $field_name: bool,
+            )+
+        }
+
+        impl $struct_name {
+            $(
+                $field_vis const $mask_name: u64 = get_xer_bit_mask($powerpc_bit_num);
+            )+
+            pub const fn from_xer(xer: u64) -> Self {
+                Self {
+                    $(
+                        $field_name: (xer & Self::$mask_name) != 0,
+                    )+
+                }
+            }
+            pub const fn to_xer(self) -> u64 {
+                let mut retval = 0u64;
+                $(
+                    if self.$field_name {
+                        retval |= Self::$mask_name;
+                    }
+                )+
+                retval
+            }
+        }
+    };
+}
+
+xer_subset! {
+    pub struct OverflowFlags {
+        #[bit(32, XER_SO_MASK)]
+        pub so: bool,
+        #[bit(33, XER_OV_MASK)]
+        pub ov: bool,
+        #[bit(44, XER_OV32_MASK)]
+        pub ov32: bool,
+    }
 }
 
 impl OverflowFlags {
-    pub const fn from_xer(xer: u64) -> Self {
-        Self {
-            so: (xer & 0x8000_0000) != 0,
-            ov: (xer & 0x4000_0000) != 0,
-            ov32: (xer & 0x8_0000) != 0,
-        }
-    }
     pub const fn from_overflow(overflow: bool) -> Self {
         Self {
             so: overflow,
             ov: overflow,
             ov32: overflow,
         }
+    }
+}
+
+xer_subset! {
+    pub struct CarryFlags {
+        #[bit(34, XER_CA_MASK)]
+        pub ca: bool,
+        #[bit(45, XER_CA32_MASK)]
+        pub ca32: bool,
     }
 }
 
@@ -91,6 +148,8 @@ pub struct InstructionResult {
     pub rt: Option<u64>,
     #[serde(default, flatten, skip_serializing_if = "Option::is_none")]
     pub overflow: Option<OverflowFlags>,
+    #[serde(default, flatten, skip_serializing_if = "Option::is_none")]
+    pub carry: Option<CarryFlags>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cr0: Option<ConditionRegister>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -109,6 +168,17 @@ pub struct InstructionResult {
     pub cr7: Option<ConditionRegister>,
 }
 
+#[derive(Debug)]
+pub struct MissingInstructionInput {
+    pub input: InstructionInputRegister,
+}
+
+impl fmt::Display for MissingInstructionInput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "missing instruction input: {}", self.input)
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum InstructionInputRegister {
     #[serde(rename = "ra")]
@@ -117,37 +187,30 @@ pub enum InstructionInputRegister {
     Rb,
     #[serde(rename = "rc")]
     Rc,
+    #[serde(rename = "ca")]
+    Carry,
 }
+
+forward_display_to_serde!(InstructionInputRegister);
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct InstructionInput {
     #[serde(with = "serde_hex::SerdeHex")]
     pub ra: u64,
-    #[serde(with = "serde_hex::SerdeHex")]
-    pub rb: u64,
-    #[serde(with = "serde_hex::SerdeHex")]
-    pub rc: u64,
-}
-
-impl Index<InstructionInputRegister> for InstructionInput {
-    type Output = u64;
-    fn index(&self, index: InstructionInputRegister) -> &Self::Output {
-        match index {
-            InstructionInputRegister::Ra => &self.ra,
-            InstructionInputRegister::Rb => &self.rb,
-            InstructionInputRegister::Rc => &self.rc,
-        }
-    }
-}
-
-impl IndexMut<InstructionInputRegister> for InstructionInput {
-    fn index_mut(&mut self, index: InstructionInputRegister) -> &mut Self::Output {
-        match index {
-            InstructionInputRegister::Ra => &mut self.ra,
-            InstructionInputRegister::Rb => &mut self.rb,
-            InstructionInputRegister::Rc => &mut self.rc,
-        }
-    }
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "serde_hex::SerdeHex"
+    )]
+    pub rb: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "serde_hex::SerdeHex"
+    )]
+    pub rc: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none", flatten)]
+    pub carry: Option<CarryFlags>,
 }
 
 fn is_false(v: &bool) -> bool {
@@ -692,6 +755,10 @@ instrs! {
     fn maddld(ra, rb, rc) -> (rt) {
         "maddld"
     }
+}
+
+// must be after instrs macro call since it uses a macro definition
+mod python;
 }
 
 // must be after instrs macro call since it uses a macro definition
