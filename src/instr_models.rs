@@ -53,6 +53,21 @@ pub fn addo(inputs: InstructionInput) -> InstructionResult {
     }
 }
 
+create_instr_variants_ov_cr!(subf, subfo, subf_, subfo_, i64);
+
+pub fn subfo(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.ra as i64;
+    let rb = inputs.rb as i64;
+    let (result, ov) = rb.overflowing_sub(ra);
+    let result = result as u64;
+    let ov32 = (rb as i32).overflowing_sub(ra as i32).1;
+    InstructionResult {
+        rt: Some(result),
+        overflow: Some(OverflowFlags { so: ov, ov, ov32 }),
+        ..InstructionResult::default()
+    }
+}
+
 create_instr_variants_ov_cr!(divde, divdeo, divde_, divdeo_, i64);
 
 pub fn divdeo(inputs: InstructionInput) -> InstructionResult {

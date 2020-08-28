@@ -423,6 +423,24 @@ instrs! {
         "addo."
     }
 
+    // subf
+    #[enumerant = SubF]
+    fn subf(ra, rb) -> (rt) {
+        "subf"
+    }
+    #[enumerant = SubFO]
+    fn subfo(ra, rb) -> (rt, ov) {
+        "subfo"
+    }
+    #[enumerant = SubF_]
+    fn subf_(ra, rb) -> (rt, cr0) {
+        "subf."
+    }
+    #[enumerant = SubFO_]
+    fn subfo_(ra, rb) -> (rt, ov, cr0) {
+        "subfo."
+    }
+
     // divde
     #[enumerant = DivDE]
     fn divde(ra, rb) -> (rt) {
