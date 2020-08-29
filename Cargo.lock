@@ -163,10 +163,20 @@ dependencies = [
 name = "power-instruction-analyzer"
 version = "0.1.0"
 dependencies = [
+ "power-instruction-analyzer-proc-macro",
  "pyo3",
  "serde",
  "serde_json",
  "serde_plain",
+]
+
+[[package]]
+name = "power-instruction-analyzer-proc-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

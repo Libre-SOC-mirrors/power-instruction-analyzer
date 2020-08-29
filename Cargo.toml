@@ -21,3 +21,12 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_plain = "0.3"
 pyo3 = { version = "0.11", optional = true }
+
+[dependencies.power-instruction-analyzer-proc-macro]
+path = "power-instruction-analyzer-proc-macro"
+
+[workspace]
+members = [
+    ".",
+    "power-instruction-analyzer-proc-macro",
+]

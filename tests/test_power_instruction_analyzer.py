@@ -83,14 +83,14 @@ class TestInstructionInput(unittest.TestCase):
                          "InstructionInput(ra=123, rb=456, rc=789)")
 
 
-class TestInstructionResult(unittest.TestCase):
+class TestInstructionOutput(unittest.TestCase):
     def test_text_signature(self):
-        self.assertEqual(pia.InstructionResult.__text_signature__,
+        self.assertEqual(pia.InstructionOutput.__text_signature__,
                          "(rt=None, overflow=None, cr0=None, cr1=None, "
                          + "cr2=None, cr3=None, cr4=None, cr5=None, cr6=None, cr7=None)")
 
     def test_fields(self):
-        v = pia.InstructionResult(
+        v = pia.InstructionOutput(
             overflow=pia.OverflowFlags(so=False, ov=False, ov32=True))
         self.assertIsNone(v.rt)
         self.assertIsNotNone(v.overflow)
@@ -113,7 +113,7 @@ class TestInstructionResult(unittest.TestCase):
         self.assertIsNotNone(v.cr2)
 
     def test_str_repr(self):
-        v = pia.InstructionResult(
+        v = pia.InstructionOutput(
             overflow=pia.OverflowFlags(so=False, ov=False, ov32=True),
             cr0=pia.ConditionRegister(lt=True, gt=True, eq=True, so=True),
             cr2=pia.ConditionRegister(lt=False, gt=False, eq=False, so=False))
@@ -122,7 +122,7 @@ class TestInstructionResult(unittest.TestCase):
                          + '"cr0":{"lt":true,"gt":true,"eq":true,"so":true},'
                          + '"cr2":{"lt":false,"gt":false,"eq":false,"so":false}}')
         self.assertEqual(repr(v),
-                         "InstructionResult(rt=None, "
+                         "InstructionOutput(rt=None, "
                          + "overflow=OverflowFlags(so=False, ov=False, ov32=True), "
                          + "cr0=ConditionRegister(lt=True, gt=True, eq=True, so=True), "
                          + "cr1=None, "
@@ -139,7 +139,7 @@ class TestDivInstrs(unittest.TestCase):
                 fn = getattr(pia, fn_name)
                 self.assertEqual(fn.__text_signature__, "(inputs)")
                 results = fn(v)
-                self.assertIsInstance(results, pia.InstructionResult)
+                self.assertIsInstance(results, pia.InstructionOutput)
 
 
 if __name__ == "__main__":

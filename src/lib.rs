@@ -9,13 +9,14 @@ compile_error!("native_instrs feature requires target_arch to be powerpc64");
 pub mod instr_models;
 mod serde_hex;
 
+use power_instruction_analyzer_proc_macro::instructions;
 use serde::{Deserialize, Serialize};
+use serde_plain::forward_display_to_serde;
 use std::{
     cmp::Ordering,
     fmt,
     ops::{Index, IndexMut},
 };
-use serde_plain::forward_display_to_serde;
 
 fn is_default<T: Default + PartialEq>(v: &T) -> bool {
     T::default() == *v
@@ -139,7 +140,7 @@ impl ConditionRegister {
 }
 
 #[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct InstructionResult {
+pub struct InstructionOutput {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -179,6 +180,10 @@ impl fmt::Display for MissingInstructionInput {
     }
 }
 
+impl std::error::Error for MissingInstructionInput {}
+
+pub type InstructionResult = Result<InstructionOutput, MissingInstructionInput>;
+
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum InstructionInputRegister {
     #[serde(rename = "ra")]
@@ -187,7 +192,7 @@ pub enum InstructionInputRegister {
     Rb,
     #[serde(rename = "rc")]
     Rc,
-    #[serde(rename = "ca")]
+    #[serde(rename = "carry")]
     Carry,
 }
 
@@ -195,8 +200,12 @@ forward_display_to_serde!(InstructionInputRegister);
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct InstructionInput {
-    #[serde(with = "serde_hex::SerdeHex")]
-    pub ra: u64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "serde_hex::SerdeHex"
+    )]
+    pub ra: Option<u64>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -213,6 +222,39 @@ pub struct InstructionInput {
     pub carry: Option<CarryFlags>,
 }
 
+macro_rules! impl_instr_try_get {
+    (
+        $(
+            $vis:vis fn $fn:ident -> $return_type:ty { .$field:ident else $error_enum:ident }
+        )+
+    ) => {
+        impl InstructionInput {
+            $(
+                $vis fn $fn(self) -> Result<$return_type, MissingInstructionInput> {
+                    self.$field.ok_or(MissingInstructionInput {
+                        input: InstructionInputRegister::$error_enum,
+                    })
+                }
+            )+
+        }
+    };
+}
+
+impl_instr_try_get! {
+    pub fn try_get_ra -> u64 {
+        .ra else Ra
+    }
+    pub fn try_get_rb -> u64 {
+        .rb else Rb
+    }
+    pub fn try_get_rc -> u64 {
+        .rc else Rc
+    }
+    pub fn try_get_carry -> CarryFlags {
+        .carry else Carry
+    }
+}
+
 fn is_false(v: &bool) -> bool {
     !v
 }
@@ -223,8 +265,8 @@ pub struct TestCase {
     #[serde(flatten)]
     pub inputs: InstructionInput,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub native_outputs: Option<InstructionResult>,
-    pub model_outputs: InstructionResult,
+    pub native_outputs: Option<InstructionOutput>,
+    pub model_outputs: InstructionOutput,
     #[serde(default, skip_serializing_if = "is_false")]
     pub model_mismatch: bool,
 }
@@ -359,6 +401,7 @@ macro_rules! instr {
                 ra,
                 rb,
                 rc,
+                carry,
             } = inputs;
             let rt: u64;
             let xer: u64;
@@ -379,7 +422,7 @@ macro_rules! instr {
                     : "b"(ra), "b"(rb), "b"(rc), "b"(0u64), "b"(!0x8000_0000u64)
                     : "xer", "cr");
             }
-            let mut retval = InstructionResult::default();
+            let mut retval = InstructionOutput::default();
             map_instr_results!(rt, xer, cr, retval, [$($results)*]);
             retval
         }
@@ -401,7 +444,7 @@ macro_rules! instrs {
                 wrap_instr_fns! {
                     #![pymodule($m)]
 
-                    $(fn $fn(inputs: InstructionInput) -> InstructionResult;)*
+                    $(fn $fn(inputs: InstructionInput) -> InstructionOutput;)*
                 }
             };
         }
@@ -416,14 +459,14 @@ macro_rules! instrs {
 
         impl Instr {
             #[cfg(feature = "native_instrs")]
-            pub fn get_native_fn(self) -> fn(InstructionInput) -> InstructionResult {
+            pub fn get_native_fn(self) -> fn(InstructionInput) -> InstructionOutput {
                 match self {
                     $(
                         Self::$enumerant => native_instrs::$fn,
                     )+
                 }
             }
-            pub fn get_model_fn(self) -> fn(InstructionInput) -> InstructionResult {
+            pub fn get_model_fn(self) -> fn(InstructionInput) -> InstructionOutput {
                 match self {
                     $(
                         Self::$enumerant => instr_models::$fn,
@@ -467,298 +510,294 @@ macro_rules! instrs {
     };
 }
 
-instrs! {
+instructions! {
     // add
     #[enumerant = Add]
-    fn add(ra, rb) -> (rt) {
+    fn add(Ra, Rb) -> (Rt) {
         "add"
     }
     #[enumerant = AddO]
-    fn addo(ra, rb) -> (rt, ov) {
+    fn addo(Ra, Rb) -> (Rt, Overflow) {
         "addo"
     }
     #[enumerant = Add_]
-    fn add_(ra, rb) -> (rt, cr0) {
+    fn add_(Ra, Rb) -> (Rt, CR0) {
         "add."
     }
     #[enumerant = AddO_]
-    fn addo_(ra, rb) -> (rt, ov, cr0) {
+    fn addo_(Ra, Rb) -> (Rt, Overflow, CR0) {
         "addo."
     }
 
     // subf
     #[enumerant = SubF]
-    fn subf(ra, rb) -> (rt) {
+    fn subf(Ra, Rb) -> (Rt) {
         "subf"
     }
     #[enumerant = SubFO]
-    fn subfo(ra, rb) -> (rt, ov) {
+    fn subfo(Ra, Rb) -> (Rt, Overflow) {
         "subfo"
     }
     #[enumerant = SubF_]
-    fn subf_(ra, rb) -> (rt, cr0) {
+    fn subf_(Ra, Rb) -> (Rt, CR0) {
         "subf."
     }
     #[enumerant = SubFO_]
-    fn subfo_(ra, rb) -> (rt, ov, cr0) {
+    fn subfo_(Ra, Rb) -> (Rt, Overflow, CR0) {
         "subfo."
     }
 
     // divde
     #[enumerant = DivDE]
-    fn divde(ra, rb) -> (rt) {
+    fn divde(Ra, Rb) -> (Rt) {
         "divde"
     }
     #[enumerant = DivDEO]
-    fn divdeo(ra, rb) -> (rt, ov) {
+    fn divdeo(Ra, Rb) -> (Rt, Overflow) {
         "divdeo"
     }
     #[enumerant = DivDE_]
-    fn divde_(ra, rb) -> (rt, cr0) {
+    fn divde_(Ra, Rb) -> (Rt, CR0) {
         "divde."
     }
     #[enumerant = DivDEO_]
-    fn divdeo_(ra, rb) -> (rt, ov, cr0) {
+    fn divdeo_(Ra, Rb) -> (Rt, Overflow, CR0) {
         "divdeo."
     }
 
     // divdeu
     #[enumerant = DivDEU]
-    fn divdeu(ra, rb) -> (rt) {
+    fn divdeu(Ra, Rb) -> (Rt) {
         "divdeu"
     }
     #[enumerant = DivDEUO]
-    fn divdeuo(ra, rb) -> (rt, ov) {
+    fn divdeuo(Ra, Rb) -> (Rt, Overflow) {
         "divdeuo"
     }
     #[enumerant = DivDEU_]
-    fn divdeu_(ra, rb) -> (rt, cr0) {
+    fn divdeu_(Ra, Rb) -> (Rt, CR0) {
         "divdeu."
     }
     #[enumerant = DivDEUO_]
-    fn divdeuo_(ra, rb) -> (rt, ov, cr0) {
+    fn divdeuo_(Ra, Rb) -> (Rt, Overflow, CR0) {
         "divdeuo."
     }
 
     // divd
     #[enumerant = DivD]
-    fn divd(ra, rb) -> (rt) {
+    fn divd(Ra, Rb) -> (Rt) {
         "divd"
     }
     #[enumerant = DivDO]
-    fn divdo(ra, rb) -> (rt, ov) {
+    fn divdo(Ra, Rb) -> (Rt, Overflow) {
         "divdo"
     }
     #[enumerant = DivD_]
-    fn divd_(ra, rb) -> (rt, cr0) {
+    fn divd_(Ra, Rb) -> (Rt, CR0) {
         "divd."
     }
     #[enumerant = DivDO_]
-    fn divdo_(ra, rb) -> (rt, ov, cr0) {
+    fn divdo_(Ra, Rb) -> (Rt, Overflow, CR0) {
         "divdo."
     }
 
     // divdu
     #[enumerant = DivDU]
-    fn divdu(ra, rb) -> (rt) {
+    fn divdu(Ra, Rb) -> (Rt) {
         "divdu"
     }
     #[enumerant = DivDUO]
-    fn divduo(ra, rb) -> (rt, ov) {
+    fn divduo(Ra, Rb) -> (Rt, Overflow) {
         "divduo"
     }
     #[enumerant = DivDU_]
-    fn divdu_(ra, rb) -> (rt, cr0) {
+    fn divdu_(Ra, Rb) -> (Rt, CR0) {
         "divdu."
     }
     #[enumerant = DivDUO_]
-    fn divduo_(ra, rb) -> (rt, ov, cr0) {
+    fn divduo_(Ra, Rb) -> (Rt, Overflow, CR0) {
         "divduo."
     }
 
     // divwe
     #[enumerant = DivWE]
-    fn divwe(ra, rb) -> (rt) {
+    fn divwe(Ra, Rb) -> (Rt) {
         "divwe"
     }
     #[enumerant = DivWEO]
-    fn divweo(ra, rb) -> (rt, ov) {
+    fn divweo(Ra, Rb) -> (Rt, Overflow) {
         "divweo"
     }
     #[enumerant = DivWE_]
-    fn divwe_(ra, rb) -> (rt, cr0) {
+    fn divwe_(Ra, Rb) -> (Rt, CR0) {
         "divwe."
     }
     #[enumerant = DivWEO_]
-    fn divweo_(ra, rb) -> (rt, ov, cr0) {
+    fn divweo_(Ra, Rb) -> (Rt, Overflow, CR0) {
         "divweo."
     }
 
     // divweu
     #[enumerant = DivWEU]
-    fn divweu(ra, rb) -> (rt) {
+    fn divweu(Ra, Rb) -> (Rt) {
         "divweu"
     }
     #[enumerant = DivWEUO]
-    fn divweuo(ra, rb) -> (rt, ov) {
+    fn divweuo(Ra, Rb) -> (Rt, Overflow) {
         "divweuo"
     }
     #[enumerant = DivWEU_]
-    fn divweu_(ra, rb) -> (rt, cr0) {
+    fn divweu_(Ra, Rb) -> (Rt, CR0) {
         "divweu."
     }
     #[enumerant = DivWEUO_]
-    fn divweuo_(ra, rb) -> (rt, ov, cr0) {
+    fn divweuo_(Ra, Rb) -> (Rt, Overflow, CR0) {
         "divweuo."
     }
 
     // divw
     #[enumerant = DivW]
-    fn divw(ra, rb) -> (rt) {
+    fn divw(Ra, Rb) -> (Rt) {
         "divw"
     }
     #[enumerant = DivWO]
-    fn divwo(ra, rb) -> (rt, ov) {
+    fn divwo(Ra, Rb) -> (Rt, Overflow) {
         "divwo"
     }
     #[enumerant = DivW_]
-    fn divw_(ra, rb) -> (rt, cr0) {
+    fn divw_(Ra, Rb) -> (Rt, CR0) {
         "divw."
     }
     #[enumerant = DivWO_]
-    fn divwo_(ra, rb) -> (rt, ov, cr0) {
+    fn divwo_(Ra, Rb) -> (Rt, Overflow, CR0) {
         "divwo."
     }
 
     // divwu
     #[enumerant = DivWU]
-    fn divwu(ra, rb) -> (rt) {
+    fn divwu(Ra, Rb) -> (Rt) {
         "divwu"
     }
     #[enumerant = DivWUO]
-    fn divwuo(ra, rb) -> (rt, ov) {
+    fn divwuo(Ra, Rb) -> (Rt, Overflow) {
         "divwuo"
     }
     #[enumerant = DivWU_]
-    fn divwu_(ra, rb) -> (rt, cr0) {
+    fn divwu_(Ra, Rb) -> (Rt, CR0) {
         "divwu."
     }
     #[enumerant = DivWUO_]
-    fn divwuo_(ra, rb) -> (rt, ov, cr0) {
+    fn divwuo_(Ra, Rb) -> (Rt, Overflow, CR0) {
         "divwuo."
     }
 
     // mod*
     #[enumerant = ModSD]
-    fn modsd(ra, rb) -> (rt) {
+    fn modsd(Ra, Rb) -> (Rt) {
         "modsd"
     }
     #[enumerant = ModUD]
-    fn modud(ra, rb) -> (rt) {
+    fn modud(Ra, Rb) -> (Rt) {
         "modud"
     }
     #[enumerant = ModSW]
-    fn modsw(ra, rb) -> (rt) {
+    fn modsw(Ra, Rb) -> (Rt) {
         "modsw"
     }
     #[enumerant = ModUW]
-    fn moduw(ra, rb) -> (rt) {
+    fn moduw(Ra, Rb) -> (Rt) {
         "moduw"
     }
 
     // mullw
     #[enumerant = MulLW]
-    fn mullw(ra, rb) -> (rt) {
+    fn mullw(Ra, Rb) -> (Rt) {
         "mullw"
     }
     #[enumerant = MulLWO]
-    fn mullwo(ra, rb) -> (rt, ov) {
+    fn mullwo(Ra, Rb) -> (Rt, Overflow) {
         "mullwo"
     }
     #[enumerant = MulLW_]
-    fn mullw_(ra, rb) -> (rt, cr0) {
+    fn mullw_(Ra, Rb) -> (Rt, CR0) {
         "mullw."
     }
     #[enumerant = MulLWO_]
-    fn mullwo_(ra, rb) -> (rt, ov, cr0) {
+    fn mullwo_(Ra, Rb) -> (Rt, Overflow, CR0) {
         "mullwo."
     }
 
     // mulhw
     #[enumerant = MulHW]
-    fn mulhw(ra, rb) -> (rt) {
+    fn mulhw(Ra, Rb) -> (Rt) {
         "mulhw"
     }
     #[enumerant = MulHW_]
-    fn mulhw_(ra, rb) -> (rt, cr0) {
+    fn mulhw_(Ra, Rb) -> (Rt, CR0) {
         "mulhw."
     }
 
     // mulhwu
     #[enumerant = MulHWU]
-    fn mulhwu(ra, rb) -> (rt) {
+    fn mulhwu(Ra, Rb) -> (Rt) {
         "mulhwu"
     }
     #[enumerant = MulHWU_]
-    fn mulhwu_(ra, rb) -> (rt, cr0) {
+    fn mulhwu_(Ra, Rb) -> (Rt, CR0) {
         "mulhwu."
     }
 
     // mulld
     #[enumerant = MulLD]
-    fn mulld(ra, rb) -> (rt) {
+    fn mulld(Ra, Rb) -> (Rt) {
         "mulld"
     }
     #[enumerant = MulLDO]
-    fn mulldo(ra, rb) -> (rt, ov) {
+    fn mulldo(Ra, Rb) -> (Rt, Overflow) {
         "mulldo"
     }
     #[enumerant = MulLD_]
-    fn mulld_(ra, rb) -> (rt, cr0) {
+    fn mulld_(Ra, Rb) -> (Rt, CR0) {
         "mulld."
     }
     #[enumerant = MulLDO_]
-    fn mulldo_(ra, rb) -> (rt, ov, cr0) {
+    fn mulldo_(Ra, Rb) -> (Rt, Overflow, CR0) {
         "mulldo."
     }
 
     // mulhd
     #[enumerant = MulHD]
-    fn mulhd(ra, rb) -> (rt) {
+    fn mulhd(Ra, Rb) -> (Rt) {
         "mulhd"
     }
     #[enumerant = MulHD_]
-    fn mulhd_(ra, rb) -> (rt, cr0) {
+    fn mulhd_(Ra, Rb) -> (Rt, CR0) {
         "mulhd."
     }
 
     // mulhdu
     #[enumerant = MulHDU]
-    fn mulhdu(ra, rb) -> (rt) {
+    fn mulhdu(Ra, Rb) -> (Rt) {
         "mulhdu"
     }
     #[enumerant = MulHDU_]
-    fn mulhdu_(ra, rb) -> (rt, cr0) {
+    fn mulhdu_(Ra, Rb) -> (Rt, CR0) {
         "mulhdu."
     }
 
     // madd*
     #[enumerant = MAddHD]
-    fn maddhd(ra, rb, rc) -> (rt) {
+    fn maddhd(Ra, Rb, Rc) -> (Rt) {
         "maddhd"
     }
     #[enumerant = MAddHDU]
-    fn maddhdu(ra, rb, rc) -> (rt) {
+    fn maddhdu(Ra, Rb, Rc) -> (Rt) {
         "maddhdu"
     }
     #[enumerant = MAddLD]
-    fn maddld(ra, rb, rc) -> (rt) {
+    fn maddld(Ra, Rb, Rc) -> (Rt) {
         "maddld"
     }
-}
-
-// must be after instrs macro call since it uses a macro definition
-mod python;
 }
 
 // must be after instrs macro call since it uses a macro definition

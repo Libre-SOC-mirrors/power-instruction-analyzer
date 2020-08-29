@@ -4,7 +4,7 @@
 #![cfg(feature = "python")]
 
 use crate::{
-    CarryFlags, ConditionRegister, Instr, InstructionInput, InstructionResult, OverflowFlags,
+    CarryFlags, ConditionRegister, Instr, InstructionInput, InstructionOutput, OverflowFlags,
 };
 use pyo3::{prelude::*, wrap_pyfunction, PyObjectProtocol};
 use std::{borrow::Cow, cell::RefCell, fmt};
@@ -286,11 +286,11 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
         #[pymodule(m)]
         #[pyclass(name = InstructionInput)]
         #[wrapped(value: InstructionInput)]
-        #[args(ra, rb="None", rc="None", carry="None")]
+        #[args(ra="None", rb="None", rc="None", carry="None")]
         #[text_signature = "(ra, rb, rc, carry)"]
         struct PyInstructionInput {
             #[set = set_ra]
-            ra: u64,
+            ra: Option<u64>,
             #[set = set_rb]
             rb: Option<u64>,
             #[set = set_rc]
@@ -302,11 +302,12 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
 
     wrap_type! {
         #[pymodule(m)]
-        #[pyclass(name = InstructionResult)]
-        #[wrapped(value: InstructionResult)]
+        #[pyclass(name = InstructionOutput)]
+        #[wrapped(value: InstructionOutput)]
         #[args(
             rt="None",
             overflow="None",
+            carry="None",
             cr0="None",
             cr1="None",
             cr2="None",
@@ -319,6 +320,7 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
         #[text_signature = "(\
             rt=None, \
             overflow=None, \
+            carry=None, \
             cr0=None, \
             cr1=None, \
             cr2=None, \
@@ -328,11 +330,13 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
             cr6=None, \
             cr7=None)"
         ]
-        struct PyInstructionResult {
+        struct PyInstructionOutput {
             #[set = set_rt]
             rt: Option<u64>,
             #[set = set_overflow]
             overflow: Option<OverflowFlags>,
+            #[set = set_carry]
+            carry: Option<CarryFlags>,
             #[set = set_cr0]
             cr0: Option<ConditionRegister>,
             #[set = set_cr1]
