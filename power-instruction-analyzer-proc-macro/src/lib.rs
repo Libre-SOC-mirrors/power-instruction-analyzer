@@ -3,7 +3,7 @@
 
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
-use std::fmt;
+use std::{borrow::Cow, fmt, fmt::Write};
 use syn::{
     braced, bracketed, parenthesized,
     parse::{Parse, ParseStream},
@@ -139,6 +139,82 @@ ident_enum! {
     }
 }
 
+#[derive(Debug, Clone)]
+enum AssemblyTextFragment {
+    Text(String),
+    InputIndex(usize),
+    OutputIndex(usize),
+}
+
+struct InlineAssembly {
+    text: Vec<AssemblyTextFragment>,
+    text_span: Span,
+    inputs: Vec<TokenStream>,
+    outputs: Vec<TokenStream>,
+    clobbers: Vec<TokenStream>,
+}
+
+impl fmt::Write for InlineAssembly {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        if let Some(AssemblyTextFragment::Text(v)) = self.text.last_mut() {
+            *v += s;
+        } else {
+            self.text.push(AssemblyTextFragment::Text(String::from(s)));
+        }
+        Ok(())
+    }
+}
+
+impl InlineAssembly {
+    fn new(text_span: Span) -> Self {
+        Self {
+            text: Vec::new(),
+            text_span,
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            clobbers: Vec::new(),
+        }
+    }
+    fn to_text(&self) -> String {
+        let mut retval = String::new();
+        for text in &self.text {
+            match text {
+                AssemblyTextFragment::Text(text) => retval += text,
+                AssemblyTextFragment::InputIndex(index) => {
+                    write!(retval, "{}", index + self.outputs.len()).unwrap();
+                }
+                AssemblyTextFragment::OutputIndex(index) => write!(retval, "{}", index).unwrap(),
+            }
+        }
+        retval
+    }
+    fn write_input_index(&mut self, index: usize) -> fmt::Result {
+        self.text.push(AssemblyTextFragment::InputIndex(index));
+        Ok(())
+    }
+    fn write_output_index(&mut self, index: usize) -> fmt::Result {
+        self.text.push(AssemblyTextFragment::OutputIndex(index));
+        Ok(())
+    }
+}
+
+impl ToTokens for InlineAssembly {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            text: _,
+            text_span,
+            inputs,
+            outputs,
+            clobbers,
+        } = self;
+        let text = LitStr::new(&self.to_text(), text_span.clone());
+        let value = quote! {
+            llvm_asm!(#text : #(#outputs),* : #(#inputs),* : #(#clobbers),*)
+        };
+        value.to_tokens(tokens);
+    }
+}
+
 #[derive(Debug)]
 struct Instruction {
     enumerant: Ident,
@@ -186,17 +262,15 @@ impl Parse for Instruction {
 
 impl Instruction {
     fn map_input_registers(&self) -> syn::Result<Vec<TokenStream>> {
-        todo!()
-    }
-    fn to_assembly_text(&self) -> syn::Result<String> {
-        let mut retval = String::new();
-        retval += "mfxer $1\n\
-                   and $1, $1, $7\n\
-                   mtxer $1\n";
-        todo!("map_instr_asm_args!([$($args)*], [$($results)*], []),");
-        retval += "\n\
-                   mfxer $1\n\
-                   mfcr $2\n";
+        let mut retval = Vec::new();
+        for input in &self.inputs {
+            match input {
+                InstructionInput::Ra(_) => retval.push(quote! {InstructionInputRegister::Ra}),
+                InstructionInput::Rb(_) => retval.push(quote! {InstructionInputRegister::Rb}),
+                InstructionInput::Rc(_) => retval.push(quote! {InstructionInputRegister::Rc}),
+                InstructionInput::Carry(_) => retval.push(quote! {InstructionInputRegister::Carry}),
+            }
+        }
         Ok(retval)
     }
     fn to_native_fn_tokens(&self) -> syn::Result<TokenStream> {
@@ -207,14 +281,41 @@ impl Instruction {
             outputs,
             instruction_name,
         } = self;
-        let assembly_text = self.to_assembly_text()?;
-        let mut handle_inputs = Vec::<TokenStream>::new();
-        unimplemented!("fill handle_inputs");
-        let mut handle_outputs = Vec::<TokenStream>::new();
-        unimplemented!(
-            "fill handle_outputs\
-                        map_instr_results!(rt, xer, cr, retval, [$($results)*]);"
-        );
+        let mut asm = InlineAssembly::new(instruction_name.span());
+        let mut before_asm = Vec::<TokenStream>::new();
+        let mut after_asm = Vec::<TokenStream>::new();
+        for output in &self.outputs {
+            match output {
+                InstructionOutput::Rt(span) => {
+                    unimplemented!("InstructionOutput::Rt");
+                }
+                InstructionOutput::Carry(span) => {
+                    unimplemented!("InstructionOutput::Carry");
+                }
+                InstructionOutput::Overflow(span) => {
+                    unimplemented!("InstructionOutput::Overflow");
+                }
+                InstructionOutput::CR0(span) => {
+                    unimplemented!("InstructionOutput::CR0");
+                }
+            }
+        }
+        for input in &self.inputs {
+            match input {
+                InstructionInput::Ra(span) => {
+                    unimplemented!("InstructionInput::Ra");
+                }
+                InstructionInput::Rb(span) => {
+                    unimplemented!("InstructionInput::Rb");
+                }
+                InstructionInput::Rc(span) => {
+                    unimplemented!("InstructionInput::Rc");
+                }
+                InstructionInput::Carry(span) => {
+                    unimplemented!("InstructionInput::Carry");
+                }
+            }
+        }
         Ok(quote! {
             pub fn #fn_name(inputs: InstructionInput) -> InstructionResult {
                 #![allow(unused_variables, unused_assignments)]
@@ -227,16 +328,12 @@ impl Instruction {
                 let rt: u64;
                 let xer: u64;
                 let cr: u32;
-                #(#handle_inputs)*
+                #(#before_asm)*
                 unsafe {
-                    llvm_asm!(
-                        #assembly_text
-                        : "=&b"(rt), "=&b"(xer), "=&b"(cr)
-                        : "b"(ra), "b"(rb), "b"(rc), "b"(0u64), "b"(!0x8000_0000u64)
-                        : "xer", "cr");
+                    #asm;
                 }
                 let mut retval = InstructionOutput::default();
-                #(#handle_outputs)*
+                #(#after_asm)*
                 retval
             }
         })
