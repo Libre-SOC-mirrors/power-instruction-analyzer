@@ -12,6 +12,8 @@ use syn::{
     Attribute, Error, ItemFn, LitStr, Token,
 };
 
+mod inline_assembly;
+
 macro_rules! valid_enumerants_as_string {
     ($enumerant:ident) => {
         concat!("`", stringify!($enumerant), "`")
@@ -139,16 +141,9 @@ ident_enum! {
     }
 }
 
-#[derive(Debug, Clone)]
-enum AssemblyTextFragment {
-    Text(String),
-    InputIndex(usize),
-    OutputIndex(usize),
-}
-
 struct InlineAssembly {
     text: Vec<AssemblyTextFragment>,
-    text_span: Span,
+    text_span: Option<Span>,
     inputs: Vec<TokenStream>,
     outputs: Vec<TokenStream>,
     clobbers: Vec<TokenStream>,
@@ -162,6 +157,24 @@ impl fmt::Write for InlineAssembly {
             self.text.push(AssemblyTextFragment::Text(String::from(s)));
         }
         Ok(())
+    }
+}
+
+impl From<String> for InlineAssembly {
+    fn from(s: String) -> Self {
+        InlineAssembly {
+            text: vec![AssemblyTextFragment::Text(s)],
+            text_span: None,
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            clobbers: Vec::new(),
+        }
+    }
+}
+
+impl From<&'_ str> for InlineAssembly {
+    fn from(s: &'_ str) -> Self {
+        String::from(s).into()
     }
 }
 
@@ -195,6 +208,16 @@ impl InlineAssembly {
     fn write_output_index(&mut self, index: usize) -> fmt::Result {
         self.text.push(AssemblyTextFragment::OutputIndex(index));
         Ok(())
+    }
+    fn add_input(&mut self, input: TokenStream) -> usize {
+        let retval = self.inputs.len();
+        self.inputs.push(input);
+        retval
+    }
+    fn add_output(&mut self, output: TokenStream) -> usize {
+        let retval = self.outputs.len();
+        self.outputs.push(output);
+        retval
     }
 }
 
@@ -284,6 +307,24 @@ impl Instruction {
         let mut asm = InlineAssembly::new(instruction_name.span());
         let mut before_asm = Vec::<TokenStream>::new();
         let mut after_asm = Vec::<TokenStream>::new();
+        for input in &self.inputs {
+            match input {
+                InstructionInput::Ra(span) => {
+                    before_asm.push(quote! {let ra = inputs.ra;});
+                    let input_index = asm.add_input(quote! {"b"(ra)});
+                    unimplemented!("InstructionInput::Ra");
+                }
+                InstructionInput::Rb(span) => {
+                    unimplemented!("InstructionInput::Rb");
+                }
+                InstructionInput::Rc(span) => {
+                    unimplemented!("InstructionInput::Rc");
+                }
+                InstructionInput::Carry(span) => {
+                    unimplemented!("InstructionInput::Carry");
+                }
+            }
+        }
         for output in &self.outputs {
             match output {
                 InstructionOutput::Rt(span) => {
@@ -300,34 +341,9 @@ impl Instruction {
                 }
             }
         }
-        for input in &self.inputs {
-            match input {
-                InstructionInput::Ra(span) => {
-                    unimplemented!("InstructionInput::Ra");
-                }
-                InstructionInput::Rb(span) => {
-                    unimplemented!("InstructionInput::Rb");
-                }
-                InstructionInput::Rc(span) => {
-                    unimplemented!("InstructionInput::Rc");
-                }
-                InstructionInput::Carry(span) => {
-                    unimplemented!("InstructionInput::Carry");
-                }
-            }
-        }
         Ok(quote! {
             pub fn #fn_name(inputs: InstructionInput) -> InstructionResult {
                 #![allow(unused_variables, unused_assignments)]
-                let InstructionInput {
-                    ra,
-                    rb,
-                    rc,
-                    carry,
-                } = inputs;
-                let rt: u64;
-                let xer: u64;
-                let cr: u32;
                 #(#before_asm)*
                 unsafe {
                     #asm;
