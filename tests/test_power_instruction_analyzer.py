@@ -10,6 +10,16 @@ class TestOverflowFlags(unittest.TestCase):
         self.assertEqual(pia.OverflowFlags.__text_signature__,
                          "(so, ov, ov32)")
 
+    def test_from_to_xer(self):
+        v = pia.OverflowFlags.from_xer(0x186864BDF558B0F6)
+        self.assertEqual(str(v),
+                         '{"so":true,"ov":true,"ov32":true}')
+        self.assertEqual(hex(v.to_xer()), '0xc0080000')
+        v = pia.OverflowFlags.from_xer(0x72242678A4DB14BB)
+        self.assertEqual(str(v),
+                         '{"so":true,"ov":false,"ov32":true}')
+        self.assertEqual(hex(v.to_xer()), '0x80080000')
+
     def test_fields(self):
         v = pia.OverflowFlags(so=False, ov=False, ov32=True)
         self.assertEqual(v.so, False)
@@ -34,6 +44,20 @@ class TestCarryFlags(unittest.TestCase):
     def test_text_signature(self):
         self.assertEqual(pia.CarryFlags.__text_signature__,
                          "(ca, ca32)")
+
+    def test_from_to_xer(self):
+        v = pia.CarryFlags.from_xer(0x186864BDF558B0F6)
+        self.assertEqual(str(v),
+                         '{"ca":true,"ca32":false}')
+        self.assertEqual(hex(v.to_xer()), '0x20000000')
+        v = pia.CarryFlags.from_xer(0xDAF403DEF4ECEBB9)
+        self.assertEqual(str(v),
+                         '{"ca":true,"ca32":true}')
+        self.assertEqual(hex(v.to_xer()), '0x20040000')
+        v = pia.CarryFlags.from_xer(0x7B276724952F507F)
+        self.assertEqual(str(v),
+                         '{"ca":false,"ca32":true}')
+        self.assertEqual(hex(v.to_xer()), '0x40000')
 
     def test_fields(self):
         v = pia.CarryFlags(ca=False, ca32=True)
@@ -71,6 +95,39 @@ class TestConditionRegister(unittest.TestCase):
         self.assertEqual(v.eq, True)
         v.so = False
         self.assertEqual(v.so, False)
+
+    def test_from_4_bits(self):
+        with self.assertRaises(OverflowError):
+            pia.ConditionRegister.from_4_bits(-1)
+        with self.assertRaisesRegex(OverflowError, "int too big to convert"):
+            pia.ConditionRegister.from_4_bits(0x10)
+        v = pia.ConditionRegister.from_4_bits(0xD)
+        self.assertEqual(str(v),
+                         '{"lt":true,"gt":true,"eq":false,"so":true}')
+        v = pia.ConditionRegister.from_4_bits(0x4)
+        self.assertEqual(str(v),
+                         '{"lt":false,"gt":true,"eq":false,"so":false}')
+
+    def test_from_cr_field(self):
+        with self.assertRaisesRegex(IndexError, "^field_index out of range$"):
+            pia.ConditionRegister.from_cr_field(0x0, -9)
+        with self.assertRaisesRegex(IndexError, "^field_index out of range$"):
+            pia.ConditionRegister.from_cr_field(0x0, 8)
+        cr = 0x6C42D586
+        values = [
+            '{"lt":false,"gt":true,"eq":true,"so":false}',
+            '{"lt":true,"gt":true,"eq":false,"so":false}',
+            '{"lt":false,"gt":true,"eq":false,"so":false}',
+            '{"lt":false,"gt":false,"eq":true,"so":false}',
+            '{"lt":true,"gt":true,"eq":false,"so":true}',
+            '{"lt":false,"gt":true,"eq":false,"so":true}',
+            '{"lt":true,"gt":false,"eq":false,"so":false}',
+            '{"lt":false,"gt":true,"eq":true,"so":false}',
+        ]
+        for i in range(-8, 8):
+            with self.subTest(i=i):
+                v = pia.ConditionRegister.from_cr_field(cr, i)
+                self.assertEqual(str(v), values[i])
 
     def test_str_repr(self):
         v = pia.ConditionRegister(lt=False, gt=True, eq=False, so=True)

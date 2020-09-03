@@ -6,7 +6,11 @@
 use crate::{
     CarryFlags, ConditionRegister, Instr, InstructionInput, InstructionOutput, OverflowFlags,
 };
-use pyo3::{exceptions::ValueError, prelude::*, wrap_pyfunction, PyObjectProtocol};
+use pyo3::{
+    exceptions::{IndexError, OverflowError, ValueError},
+    prelude::*,
+    wrap_pyfunction, PyObjectProtocol,
+};
 use std::{borrow::Cow, cell::RefCell, fmt};
 
 trait ToPythonRepr {
@@ -251,6 +255,19 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
         }
     }
 
+    #[pymethods]
+    impl PyOverflowFlags {
+        #[text_signature = "(xer)"]
+        #[staticmethod]
+        pub fn from_xer(xer: u64) -> OverflowFlags {
+            OverflowFlags::from_xer(xer)
+        }
+        #[text_signature = "($self)"]
+        pub fn to_xer(&self) -> u64 {
+            self.value.to_xer()
+        }
+    }
+
     wrap_type! {
         #[pymodule(m)]
         #[pyclass(name = CarryFlags)]
@@ -262,6 +279,19 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
             ca: bool,
             #[set = set_ca32]
             ca32: bool,
+        }
+    }
+
+    #[pymethods]
+    impl PyCarryFlags {
+        #[text_signature = "(xer)"]
+        #[staticmethod]
+        pub fn from_xer(xer: u64) -> CarryFlags {
+            CarryFlags::from_xer(xer)
+        }
+        #[text_signature = "($self)"]
+        pub fn to_xer(&self) -> u64 {
+            self.value.to_xer()
         }
     }
 
@@ -283,12 +313,36 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
         }
     }
 
+    #[pymethods]
+    impl PyConditionRegister {
+        #[text_signature = "(bits)"]
+        #[staticmethod]
+        fn from_4_bits(bits: u8) -> PyResult<ConditionRegister> {
+            if bits > 0xF {
+                OverflowError::into("int too big to convert")?;
+            }
+            Ok(ConditionRegister::from_4_bits(bits))
+        }
+        #[text_signature = "(cr, field_index)"]
+        #[staticmethod]
+        fn from_cr_field(cr: u32, mut field_index: isize) -> PyResult<ConditionRegister> {
+            // adjust for python-style indexes
+            if field_index < 0 {
+                field_index += ConditionRegister::CR_FIELD_COUNT as isize;
+            }
+            if field_index < 0 || field_index >= ConditionRegister::CR_FIELD_COUNT as isize {
+                IndexError::into("field_index out of range")?;
+            }
+            Ok(ConditionRegister::from_cr_field(cr, field_index as usize))
+        }
+    }
+
     wrap_type! {
         #[pymodule(m)]
         #[pyclass(name = InstructionInput)]
         #[wrapped(value: InstructionInput)]
         #[args(ra="None", rb="None", rc="None", carry="None", overflow="None")]
-        #[text_signature = "(ra, rb, rc, carry, overflow)"]
+        #[text_signature = "(ra=None, rb=None, rc=None, carry=None, overflow=None)"]
         struct PyInstructionInput {
             #[set = set_ra]
             ra: Option<u64>,
