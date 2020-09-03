@@ -1,10 +1,22 @@
 use crate::{
-    ConditionRegister, InstructionInput, InstructionOutput, InstructionResult, OverflowFlags,
+    ConditionRegister, InstructionInput, InstructionOutput, InstructionResult,
+    MissingInstructionInput, OverflowFlags,
 };
+
+fn propagate_so(
+    mut overflow: OverflowFlags,
+    inputs: InstructionInput,
+) -> Result<OverflowFlags, MissingInstructionInput> {
+    if inputs.try_get_overflow()?.so {
+        overflow.so = true;
+    }
+    Ok(overflow)
+}
 
 macro_rules! create_instr_variants_ov_cr {
     ($fn:ident, $fno:ident, $fn_:ident, $fno_:ident, $iwidth:ident) => {
-        pub fn $fn(inputs: InstructionInput) -> InstructionResult {
+        pub fn $fn(mut inputs: InstructionInput) -> InstructionResult {
+            inputs.overflow = Some(OverflowFlags::default());
             Ok(InstructionOutput {
                 overflow: None,
                 ..$fno(inputs)?
@@ -13,7 +25,7 @@ macro_rules! create_instr_variants_ov_cr {
         pub fn $fn_(inputs: InstructionInput) -> InstructionResult {
             let mut retval = $fno_(inputs)?;
             let mut cr0 = retval.cr0.as_mut().expect("expected cr0 to be set");
-            cr0.so = false;
+            cr0.so = inputs.try_get_overflow()?.so;
             retval.overflow = None;
             Ok(retval)
         }
@@ -33,7 +45,10 @@ macro_rules! create_instr_variants_cr {
         pub fn $fn_(inputs: InstructionInput) -> InstructionResult {
             let mut retval = $fn(inputs)?;
             let result = retval.rt.expect("expected rt to be set");
-            let cr0 = ConditionRegister::from_signed_int(result as $iwidth, false);
+            let cr0 = ConditionRegister::from_signed_int(
+                result as $iwidth,
+                inputs.try_get_overflow()?.so,
+            );
             retval.cr0 = Some(cr0);
             Ok(retval)
         }
@@ -50,7 +65,7 @@ pub fn addo(inputs: InstructionInput) -> InstructionResult {
     let ov32 = (ra as i32).overflowing_add(rb as i32).1;
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(OverflowFlags { so: ov, ov, ov32 }),
+        overflow: Some(propagate_so(OverflowFlags { so: ov, ov, ov32 }, inputs)?),
         ..InstructionOutput::default()
     })
 }
@@ -65,7 +80,7 @@ pub fn subfo(inputs: InstructionInput) -> InstructionResult {
     let ov32 = (rb as i32).overflowing_sub(ra as i32).1;
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(OverflowFlags { so: ov, ov, ov32 }),
+        overflow: Some(propagate_so(OverflowFlags { so: ov, ov, ov32 }, inputs)?),
         ..InstructionOutput::default()
     })
 }
@@ -92,7 +107,10 @@ pub fn divdeo(inputs: InstructionInput) -> InstructionResult {
     }
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        overflow: Some(propagate_so(
+            OverflowFlags::from_overflow(overflow),
+            inputs,
+        )?),
         ..InstructionOutput::default()
     })
 }
@@ -119,7 +137,10 @@ pub fn divdeuo(inputs: InstructionInput) -> InstructionResult {
     }
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        overflow: Some(propagate_so(
+            OverflowFlags::from_overflow(overflow),
+            inputs,
+        )?),
         ..InstructionOutput::default()
     })
 }
@@ -140,7 +161,10 @@ pub fn divdo(inputs: InstructionInput) -> InstructionResult {
     }
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        overflow: Some(propagate_so(
+            OverflowFlags::from_overflow(overflow),
+            inputs,
+        )?),
         ..InstructionOutput::default()
     })
 }
@@ -161,7 +185,10 @@ pub fn divduo(inputs: InstructionInput) -> InstructionResult {
     }
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        overflow: Some(propagate_so(
+            OverflowFlags::from_overflow(overflow),
+            inputs,
+        )?),
         ..InstructionOutput::default()
     })
 }
@@ -189,7 +216,10 @@ pub fn divweo(inputs: InstructionInput) -> InstructionResult {
     }
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        overflow: Some(propagate_so(
+            OverflowFlags::from_overflow(overflow),
+            inputs,
+        )?),
         ..InstructionOutput::default()
     })
 }
@@ -217,7 +247,10 @@ pub fn divweuo(inputs: InstructionInput) -> InstructionResult {
     }
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        overflow: Some(propagate_so(
+            OverflowFlags::from_overflow(overflow),
+            inputs,
+        )?),
         ..InstructionOutput::default()
     })
 }
@@ -239,7 +272,10 @@ pub fn divwo(inputs: InstructionInput) -> InstructionResult {
     }
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        overflow: Some(propagate_so(
+            OverflowFlags::from_overflow(overflow),
+            inputs,
+        )?),
         ..InstructionOutput::default()
     })
 }
@@ -261,7 +297,10 @@ pub fn divwuo(inputs: InstructionInput) -> InstructionResult {
     }
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        overflow: Some(propagate_so(
+            OverflowFlags::from_overflow(overflow),
+            inputs,
+        )?),
         ..InstructionOutput::default()
     })
 }
@@ -335,7 +374,10 @@ pub fn mullwo(inputs: InstructionInput) -> InstructionResult {
     let overflow = result as i32 as i64 != result as i64;
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        overflow: Some(propagate_so(
+            OverflowFlags::from_overflow(overflow),
+            inputs,
+        )?),
         ..InstructionOutput::default()
     })
 }
@@ -377,7 +419,10 @@ pub fn mulldo(inputs: InstructionInput) -> InstructionResult {
     let overflow = ra.checked_mul(rb).is_none();
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(OverflowFlags::from_overflow(overflow)),
+        overflow: Some(propagate_so(
+            OverflowFlags::from_overflow(overflow),
+            inputs,
+        )?),
         ..InstructionOutput::default()
     })
 }
