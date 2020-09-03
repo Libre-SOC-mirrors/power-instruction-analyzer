@@ -111,8 +111,8 @@ pub fn subfco(inputs: InstructionInput) -> InstructionResult {
     let (result, ov) = rb.overflowing_sub(ra);
     let result = result as u64;
     let ov32 = (rb as i32).overflowing_sub(ra as i32).1;
-    let ca = (rb as u64).overflowing_sub(ra as u64).1;
-    let ca32 = (rb as u32).overflowing_sub(ra as u32).1;
+    let ca = !(rb as u64).overflowing_sub(ra as u64).1;
+    let ca32 = !(rb as u32).overflowing_sub(ra as u32).1;
     Ok(InstructionOutput {
         rt: Some(result),
         overflow: Some(propagate_so(OverflowFlags { so: ov, ov, ov32 }, inputs)?),
