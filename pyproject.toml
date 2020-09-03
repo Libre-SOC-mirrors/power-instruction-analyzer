@@ -7,3 +7,4 @@ build-backend = "maturin"
 [tool.maturin]
 bindings = "pyo3"
 cargo-extra-args = "--features python-extension"
+sdist-include = ["power-instruction-analyzer-proc-macro/**/*"]
