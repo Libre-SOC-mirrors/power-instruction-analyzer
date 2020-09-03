@@ -30,6 +30,28 @@ class TestOverflowFlags(unittest.TestCase):
                          "OverflowFlags(so=False, ov=False, ov32=True)")
 
 
+class TestCarryFlags(unittest.TestCase):
+    def test_text_signature(self):
+        self.assertEqual(pia.CarryFlags.__text_signature__,
+                         "(ca, ca32)")
+
+    def test_fields(self):
+        v = pia.CarryFlags(ca=False, ca32=True)
+        self.assertEqual(v.ca, False)
+        self.assertEqual(v.ca32, True)
+        v.ca = True
+        self.assertEqual(v.ca, True)
+        v.ca32 = False
+        self.assertEqual(v.ca32, False)
+
+    def test_str_repr(self):
+        v = pia.CarryFlags(ca=False, ca32=True)
+        self.assertEqual(str(v),
+                         '{"ca":false,"ca32":true}')
+        self.assertEqual(repr(v),
+                         "CarryFlags(ca=False, ca32=True)")
+
+
 class TestConditionRegister(unittest.TestCase):
     def test_text_signature(self):
         self.assertEqual(pia.ConditionRegister.__text_signature__,
@@ -84,15 +106,19 @@ class TestInstructionInput(unittest.TestCase):
 
 
 class TestInstructionOutput(unittest.TestCase):
+    maxDiff = 1000
+
     def test_text_signature(self):
         self.assertEqual(pia.InstructionOutput.__text_signature__,
-                         "(rt=None, overflow=None, cr0=None, cr1=None, "
-                         + "cr2=None, cr3=None, cr4=None, cr5=None, cr6=None, cr7=None)")
+                         "(rt=None, overflow=None, carry=None, cr0=None, "
+                         "cr1=None, cr2=None, cr3=None, cr4=None, cr5=None, "
+                         "cr6=None, cr7=None)")
 
     def test_fields(self):
         v = pia.InstructionOutput(
             overflow=pia.OverflowFlags(so=False, ov=False, ov32=True))
         self.assertIsNone(v.rt)
+        self.assertIsNone(v.carry)
         self.assertIsNotNone(v.overflow)
         self.assertEqual(v.overflow.so, False)
         self.assertEqual(v.overflow.ov, False)
@@ -111,23 +137,30 @@ class TestInstructionOutput(unittest.TestCase):
         self.assertIsNone(v.overflow)
         v.cr2 = pia.ConditionRegister(lt=False, gt=False, eq=False, so=False)
         self.assertIsNotNone(v.cr2)
+        v.carry = pia.CarryFlags(ca=False, ca32=True)
+        self.assertIsNotNone(v.carry)
+        self.assertEqual(v.carry.ca, False)
+        self.assertEqual(v.carry.ca32, True)
 
     def test_str_repr(self):
         v = pia.InstructionOutput(
             overflow=pia.OverflowFlags(so=False, ov=False, ov32=True),
+            carry=pia.CarryFlags(ca=True, ca32=False),
             cr0=pia.ConditionRegister(lt=True, gt=True, eq=True, so=True),
             cr2=pia.ConditionRegister(lt=False, gt=False, eq=False, so=False))
         self.assertEqual(str(v),
-                         '{"so":false,"ov":false,"ov32":true,'
-                         + '"cr0":{"lt":true,"gt":true,"eq":true,"so":true},'
-                         + '"cr2":{"lt":false,"gt":false,"eq":false,"so":false}}')
+                         '{"so":false,"ov":false,"ov32":true,"ca":true,'
+                         '"ca32":false,"cr0":{"lt":true,"gt":true,"eq":true,'
+                         '"so":true},"cr2":{"lt":false,"gt":false,"eq":false,'
+                         '"so":false}}')
         self.assertEqual(repr(v),
-                         "InstructionOutput(rt=None, "
-                         + "overflow=OverflowFlags(so=False, ov=False, ov32=True), "
-                         + "cr0=ConditionRegister(lt=True, gt=True, eq=True, so=True), "
-                         + "cr1=None, "
-                         + "cr2=ConditionRegister(lt=False, gt=False, eq=False, so=False), "
-                         + "cr3=None, cr4=None, cr5=None, cr6=None, cr7=None)")
+                         "InstructionOutput(rt=None, overflow=OverflowFlags("
+                         "so=False, ov=False, ov32=True), carry=CarryFlags("
+                         "ca=True, ca32=False), cr0=ConditionRegister(lt=True,"
+                         " gt=True, eq=True, so=True), cr1=None, "
+                         "cr2=ConditionRegister(lt=False, gt=False, eq=False, "
+                         "so=False), cr3=None, cr4=None, cr5=None, cr6=None, "
+                         "cr7=None)")
 
 
 class TestDivInstrs(unittest.TestCase):
@@ -140,6 +173,14 @@ class TestDivInstrs(unittest.TestCase):
                 self.assertEqual(fn.__text_signature__, "(inputs)")
                 results = fn(v)
                 self.assertIsInstance(results, pia.InstructionOutput)
+
+    def test_exception(self):
+        with self.assertRaisesRegex(ValueError, "missing instruction input"):
+            v = pia.InstructionInput(ra=1)
+            pia.mulldo_(v)
+        with self.assertRaisesRegex(ValueError, "missing instruction input"):
+            v = pia.InstructionInput(ra=1, rb=1)
+            pia.mulldo_(v)
 
 
 if __name__ == "__main__":

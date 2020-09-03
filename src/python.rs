@@ -6,7 +6,7 @@
 use crate::{
     CarryFlags, ConditionRegister, Instr, InstructionInput, InstructionOutput, OverflowFlags,
 };
-use pyo3::{prelude::*, wrap_pyfunction, PyObjectProtocol};
+use pyo3::{exceptions::ValueError, prelude::*, wrap_pyfunction, PyObjectProtocol};
 use std::{borrow::Cow, cell::RefCell, fmt};
 
 trait ToPythonRepr {
@@ -222,8 +222,9 @@ macro_rules! wrap_instr_fns {
                 #[pyfunction $($pyfunction_args)?]
                 #[text_signature = "(inputs)"]
                 $(#[$meta])*
-                fn $name(inputs: $inputs) -> $result {
+                fn $name(inputs: $inputs) -> PyResult<InstructionOutput> {
                     $crate::instr_models::$name(inputs)
+                        .map_err(|err| ValueError::py_err(err.to_string()))
                 }
 
                 $m.add_wrapped(wrap_pyfunction!($name))?;
@@ -286,8 +287,8 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
         #[pymodule(m)]
         #[pyclass(name = InstructionInput)]
         #[wrapped(value: InstructionInput)]
-        #[args(ra="None", rb="None", rc="None", carry="None")]
-        #[text_signature = "(ra, rb, rc, carry)"]
+        #[args(ra="None", rb="None", rc="None", carry="None", overflow="None")]
+        #[text_signature = "(ra, rb, rc, carry, overflow)"]
         struct PyInstructionInput {
             #[set = set_ra]
             ra: Option<u64>,
@@ -297,6 +298,8 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
             rc: Option<u64>,
             #[set = set_carry]
             carry: Option<CarryFlags>,
+            #[set = set_overflow]
+            overflow: Option<OverflowFlags>,
         }
     }
 

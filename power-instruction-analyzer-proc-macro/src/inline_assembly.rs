@@ -4,20 +4,146 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use std::{
-    borrow::Cow,
     collections::HashMap,
     fmt::Write,
-    hash::{Hash, Hasher},
-    marker::PhantomPinned,
-    ops::{Add, AddAssign, Deref, DerefMut},
-    pin::Pin,
-    rc::Rc,
+    hash::Hash,
+    ops::{Deref, DerefMut},
     sync::atomic::{AtomicU64, Ordering},
 };
 use syn::LitStr;
 
+macro_rules! append_assembly {
+    ($retval:ident;) => {};
+    ($retval:ident; $lit:literal $($tt:tt)*) => {
+        $crate::inline_assembly::ToAssembly::append_to($lit, &mut $retval);
+        append_assembly!($retval; $($tt)*);
+    };
+    ($retval:ident; input($arg_id:ident = {$($arg_tt:tt)*}) $($tt:tt)*) => {
+        {
+            let (arg, arg_id) = $crate::inline_assembly::Assembly::make_input(quote! {$($arg_tt)*});
+            $crate::inline_assembly::ToAssembly::append_to(&arg, &mut $retval);
+            $arg_id = arg_id;
+        }
+        append_assembly!($retval; $($tt)*);
+    };
+    ($retval:ident; input{$($arg_tt:tt)*} $($tt:tt)*) => {
+        {
+            let (arg, _arg_id) = $crate::inline_assembly::Assembly::make_input(quote! {$($arg_tt)*});
+            $crate::inline_assembly::ToAssembly::append_to(&arg, &mut $retval);
+        }
+        append_assembly!($retval; $($tt)*);
+    };
+    ($retval:ident; output($arg_id:ident = {$($arg_tt:tt)*}) $($tt:tt)*) => {
+        {
+            let (arg, arg_id) = $crate::inline_assembly::Assembly::make_output(quote! {$($arg_tt)*});
+            $crate::inline_assembly::ToAssembly::append_to(&arg, &mut $retval);
+            $arg_id = arg_id;
+        }
+        append_assembly!($retval; $($tt)*);
+    };
+    ($retval:ident; output{$($arg_tt:tt)*} $($tt:tt)*) => {
+        {
+            let (arg, _arg_id) = $crate::inline_assembly::Assembly::make_output(quote! {$($arg_tt)*});
+            $crate::inline_assembly::ToAssembly::append_to(&arg, &mut $retval);
+        }
+        append_assembly!($retval; $($tt)*);
+    };
+    ($retval:ident; clobber{$($arg_tt:tt)*} $($tt:tt)*) => {
+        $crate::inline_assembly::ToAssembly::append_to(
+            &$crate::inline_assembly::Assembly::make_clobber(quote::quote! {$($arg_tt)*}),
+            &mut $retval
+        );
+        append_assembly!($retval; $($tt)*);
+    };
+    ($retval:ident; ($arg_id:ident) $($tt:tt)*) => {
+        $crate::inline_assembly::ToAssembly::append_to(&$arg_id, &mut $retval);
+        append_assembly!($retval; $($tt)*);
+    };
+}
+
+macro_rules! assembly {
+    () => {
+        $crate::inline_assembly::Assembly::new()
+    };
+    ($($tt:tt)*) => {
+        {
+            let mut retval = $crate::inline_assembly::Assembly::new();
+            append_assembly!(retval; $($tt)*);
+            retval
+        }
+    };
+}
+
 pub(crate) trait ToAssembly {
-    fn to_assembly(&self) -> Assembly;
+    /// appends `self` to `retval`
+    fn append_to(&self, retval: &mut Assembly);
+
+    fn to_assembly(&self) -> Assembly {
+        let mut retval = Assembly::default();
+        self.append_to(&mut retval);
+        retval
+    }
+
+    fn into_assembly(self) -> Assembly
+    where
+        Self: Sized,
+    {
+        let mut retval = Assembly::default();
+        self.append_to(&mut retval);
+        retval
+    }
+}
+
+impl<T: ToAssembly + ?Sized> ToAssembly for &'_ T {
+    fn append_to(&self, retval: &mut Assembly) {
+        (**self).append_to(retval);
+    }
+
+    fn to_assembly(&self) -> Assembly {
+        (**self).to_assembly()
+    }
+}
+
+impl<T: ToAssembly + ?Sized> ToAssembly for &'_ mut T {
+    fn append_to(&self, retval: &mut Assembly) {
+        (**self).append_to(retval);
+    }
+
+    fn to_assembly(&self) -> Assembly {
+        (**self).to_assembly()
+    }
+}
+
+impl<T: ToAssembly> ToAssembly for Box<T> {
+    fn append_to(&self, retval: &mut Assembly) {
+        (**self).append_to(retval);
+    }
+
+    fn to_assembly(&self) -> Assembly {
+        (**self).to_assembly()
+    }
+
+    fn into_assembly(self) -> Assembly {
+        (*self).into_assembly()
+    }
+}
+
+impl ToAssembly for str {
+    fn append_to(&self, retval: &mut Assembly) {
+        if let Some(AssemblyTextFragment::Text(text)) = retval.text_fragments.last_mut() {
+            *text += self;
+        } else {
+            retval
+                .text_fragments
+                .push(AssemblyTextFragment::Text(self.into()));
+        }
+    }
+}
+
+impl ToAssembly for String {
+    fn append_to(&self, retval: &mut Assembly) {
+        str::append_to(&self, retval)
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -31,9 +157,17 @@ impl AssemblyArgId {
     }
 }
 
+impl ToAssembly for AssemblyArgId {
+    fn append_to(&self, retval: &mut Assembly) {
+        retval
+            .text_fragments
+            .push(AssemblyTextFragment::ArgIndex(*self));
+    }
+}
+
 macro_rules! impl_assembly_arg {
     (
-        $vis:vis struct $name:ident {
+        struct $name:ident {
             tokens: TokenStream,
             $(
                 $id:ident: AssemblyArgId,
@@ -41,15 +175,9 @@ macro_rules! impl_assembly_arg {
         }
     ) => {
         #[derive(Debug, Clone)]
-        $vis struct $name {
+        struct $name {
             tokens: TokenStream,
             $($id: AssemblyArgId,)?
-        }
-
-        impl $name {
-            $vis fn new(tokens: impl ToTokens) -> Self {
-                tokens.into_token_stream().into()
-            }
         }
 
         impl ToTokens for $name {
@@ -78,21 +206,21 @@ macro_rules! impl_assembly_arg {
 }
 
 impl_assembly_arg! {
-    pub(crate) struct AssemblyInputArg {
+    struct AssemblyInputArg {
         tokens: TokenStream,
         id: AssemblyArgId,
     }
 }
 
 impl_assembly_arg! {
-    pub(crate) struct AssemblyOutputArg {
+    struct AssemblyOutputArg {
         tokens: TokenStream,
         id: AssemblyArgId,
     }
 }
 
 impl_assembly_arg! {
-    pub(crate) struct AssemblyClobber {
+    struct AssemblyClobber {
         tokens: TokenStream,
     }
 }
@@ -126,9 +254,54 @@ impl From<&'_ str> for Assembly {
     }
 }
 
+impl From<AssemblyArgId> for Assembly {
+    fn from(arg_id: AssemblyArgId) -> Self {
+        Self {
+            text_fragments: vec![AssemblyTextFragment::ArgIndex(arg_id)],
+            ..Self::default()
+        }
+    }
+}
+
+impl From<&'_ AssemblyArgId> for Assembly {
+    fn from(arg_id: &AssemblyArgId) -> Self {
+        Self::from(*arg_id)
+    }
+}
+
 impl Assembly {
     pub(crate) fn new() -> Self {
         Self::default()
+    }
+    pub(crate) fn make_input(tokens: impl ToTokens) -> (Self, AssemblyArgId) {
+        let input: AssemblyInputArg = tokens.into_token_stream().into();
+        let id = input.id;
+        (
+            Self {
+                text_fragments: vec![AssemblyTextFragment::ArgIndex(id)],
+                inputs: vec![input],
+                ..Self::default()
+            },
+            id,
+        )
+    }
+    pub(crate) fn make_output(tokens: impl ToTokens) -> (Self, AssemblyArgId) {
+        let output: AssemblyOutputArg = tokens.into_token_stream().into();
+        let id = output.id;
+        (
+            Self {
+                text_fragments: vec![AssemblyTextFragment::ArgIndex(id)],
+                outputs: vec![output],
+                ..Self::default()
+            },
+            id,
+        )
+    }
+    pub(crate) fn make_clobber(tokens: impl ToTokens) -> Self {
+        Self {
+            clobbers: vec![tokens.into_token_stream().into()],
+            ..Self::default()
+        }
     }
     pub(crate) fn to_text(&self) -> String {
         let mut id_index_map = HashMap::new();
@@ -166,72 +339,26 @@ impl Assembly {
     }
 }
 
-impl AddAssign<&'_ Assembly> for Assembly {
-    fn add_assign(&mut self, rhs: &Assembly) {
-        let Self {
-            text_fragments,
-            inputs,
-            outputs,
-            clobbers,
-        } = self;
-        text_fragments.reserve(rhs.text_fragments.len());
-        for text_fragment in &rhs.text_fragments {
+impl ToAssembly for Assembly {
+    fn append_to(&self, retval: &mut Assembly) {
+        retval.text_fragments.reserve(self.text_fragments.len());
+        for text_fragment in &self.text_fragments {
             match *text_fragment {
-                AssemblyTextFragment::Text(ref rhs_text) => {
-                    if let Some(AssemblyTextFragment::Text(text)) = text_fragments.last_mut() {
-                        *text += rhs_text;
-                    } else {
-                        text_fragments.push(AssemblyTextFragment::Text(rhs_text.clone()));
-                    }
-                }
-                AssemblyTextFragment::ArgIndex(id) => {
-                    self.text_fragments.push(AssemblyTextFragment::ArgIndex(id));
-                }
+                AssemblyTextFragment::Text(ref text) => text.append_to(retval),
+                AssemblyTextFragment::ArgIndex(id) => id.append_to(retval),
             }
         }
-        inputs.extend_from_slice(&rhs.inputs);
-        outputs.extend_from_slice(&rhs.outputs);
-        clobbers.extend_from_slice(&rhs.clobbers);
+        retval.inputs.extend_from_slice(&self.inputs);
+        retval.outputs.extend_from_slice(&self.outputs);
+        retval.clobbers.extend_from_slice(&self.clobbers);
     }
-}
 
-impl AddAssign<Assembly> for Assembly {
-    fn add_assign(&mut self, rhs: Assembly) {
-        *self += &rhs;
+    fn to_assembly(&self) -> Assembly {
+        self.clone()
     }
-}
 
-impl Add for Assembly {
-    type Output = Assembly;
-
-    fn add(mut self, rhs: Self) -> Self::Output {
-        self += rhs;
+    fn into_assembly(self) -> Assembly {
         self
-    }
-}
-
-impl Add<&'_ Assembly> for Assembly {
-    type Output = Assembly;
-
-    fn add(mut self, rhs: &Assembly) -> Self::Output {
-        self += rhs;
-        self
-    }
-}
-
-impl Add<Assembly> for &'_ Assembly {
-    type Output = Assembly;
-
-    fn add(self, rhs: Assembly) -> Self::Output {
-        Assembly::clone(self) + rhs
-    }
-}
-
-impl Add<&'_ Assembly> for &'_ Assembly {
-    type Output = Assembly;
-
-    fn add(self, rhs: &Assembly) -> Self::Output {
-        Assembly::clone(self) + rhs
     }
 }
 
