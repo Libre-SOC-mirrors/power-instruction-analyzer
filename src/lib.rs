@@ -351,6 +351,42 @@ instructions! {
         "subfco."
     }
 
+    // adde
+    #[enumerant = AddE]
+    fn adde(Ra, Rb, Carry) -> (Rt, Carry) {
+        "adde"
+    }
+    #[enumerant = AddEO]
+    fn addeo(Ra, Rb, Overflow, Carry) -> (Rt, Carry, Overflow) {
+        "addeo"
+    }
+    #[enumerant = AddE_]
+    fn adde_(Ra, Rb, Overflow, Carry) -> (Rt, Carry, CR0) {
+        "adde."
+    }
+    #[enumerant = AddEO_]
+    fn addeo_(Ra, Rb, Overflow, Carry) -> (Rt, Carry, Overflow, CR0) {
+        "addeo."
+    }
+
+    // subfe
+    #[enumerant = SubFE]
+    fn subfe(Ra, Rb, Carry) -> (Rt, Carry) {
+        "subfe"
+    }
+    #[enumerant = SubFEO]
+    fn subfeo(Ra, Rb, Overflow, Carry) -> (Rt, Carry, Overflow) {
+        "subfeo"
+    }
+    #[enumerant = SubFE_]
+    fn subfe_(Ra, Rb, Overflow, Carry) -> (Rt, Carry, CR0) {
+        "subfe."
+    }
+    #[enumerant = SubFEO_]
+    fn subfeo_(Ra, Rb, Overflow, Carry) -> (Rt, Carry, Overflow, CR0) {
+        "subfeo."
+    }
+
     // divde
     #[enumerant = DivDE]
     fn divde(Ra, Rb) -> (Rt) {
