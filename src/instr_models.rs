@@ -1,5 +1,5 @@
 use crate::{
-    ConditionRegister, InstructionInput, InstructionOutput, InstructionResult,
+    CarryFlags, ConditionRegister, InstructionInput, InstructionOutput, InstructionResult,
     MissingInstructionInput, OverflowFlags,
 };
 
@@ -81,6 +81,42 @@ pub fn subfo(inputs: InstructionInput) -> InstructionResult {
     Ok(InstructionOutput {
         rt: Some(result),
         overflow: Some(propagate_so(OverflowFlags { so: ov, ov, ov32 }, inputs)?),
+        ..InstructionOutput::default()
+    })
+}
+
+create_instr_variants_ov_cr!(addc, addco, addc_, addco_, i64);
+
+pub fn addco(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as i64;
+    let rb = inputs.try_get_rb()? as i64;
+    let (result, ov) = ra.overflowing_add(rb);
+    let result = result as u64;
+    let ov32 = (ra as i32).overflowing_add(rb as i32).1;
+    let ca = (ra as u64).overflowing_add(rb as u64).1;
+    let ca32 = (ra as u32).overflowing_add(rb as u32).1;
+    Ok(InstructionOutput {
+        rt: Some(result),
+        overflow: Some(propagate_so(OverflowFlags { so: ov, ov, ov32 }, inputs)?),
+        carry: Some(CarryFlags { ca, ca32 }),
+        ..InstructionOutput::default()
+    })
+}
+
+create_instr_variants_ov_cr!(subfc, subfco, subfc_, subfco_, i64);
+
+pub fn subfco(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as i64;
+    let rb = inputs.try_get_rb()? as i64;
+    let (result, ov) = rb.overflowing_sub(ra);
+    let result = result as u64;
+    let ov32 = (rb as i32).overflowing_sub(ra as i32).1;
+    let ca = (rb as u64).overflowing_sub(ra as u64).1;
+    let ca32 = (rb as u32).overflowing_sub(ra as u32).1;
+    Ok(InstructionOutput {
+        rt: Some(result),
+        overflow: Some(propagate_so(OverflowFlags { so: ov, ov, ov32 }, inputs)?),
+        carry: Some(CarryFlags { ca, ca32 }),
         ..InstructionOutput::default()
     })
 }
