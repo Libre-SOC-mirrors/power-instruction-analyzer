@@ -6,6 +6,7 @@ version = "0.1.0"
 authors = ["Jacob Lifshay <programmerjake@gmail.com>"]
 edition = "2018"
 license = "LGPL-2.1-or-later"
+exclude = ["output-for-*.json"]
 
 [features]
 native_instrs = []
