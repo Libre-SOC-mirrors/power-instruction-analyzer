@@ -303,6 +303,14 @@ impl Assembly {
             ..Self::default()
         }
     }
+    pub(crate) fn args_without_text(&self) -> Assembly {
+        Assembly {
+            text_fragments: Vec::new(),
+            inputs: self.inputs.clone(),
+            outputs: self.outputs.clone(),
+            clobbers: self.clobbers.clone(),
+        }
+    }
     pub(crate) fn to_text(&self) -> String {
         let mut id_index_map = HashMap::new();
         for (index, id) in self

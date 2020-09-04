@@ -9,10 +9,10 @@ use syn::{
     braced, bracketed, parenthesized,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
-    Error, LitStr, Token,
+    token, Error, LitStr, Token,
 };
 
-trait InstructionArg: Clone + fmt::Debug + ToTokens + Parse {
+trait InstructionArgName: Clone + fmt::Debug + ToTokens + Parse {
     type Enumerant: Copy + Eq + Hash + fmt::Debug;
     fn enumerant(&self) -> Self::Enumerant;
     fn span(&self) -> &Span;
@@ -67,7 +67,7 @@ macro_rules! ident_enum {
             )*
         }
 
-        impl InstructionArg for $enum_name<Span> {
+        impl InstructionArgName for $enum_name<Span> {
             type Enumerant = $enum_name<()>;
             fn enumerant(&self) -> Self::Enumerant {
                 $enum_name::enumerant(self)
@@ -143,7 +143,7 @@ macro_rules! ident_enum {
 
 ident_enum! {
     #[parse_error_msg = "unknown instruction input"]
-    enum InstructionInput {
+    enum InstructionInputName {
         Ra,
         Rb,
         Rc,
@@ -154,7 +154,7 @@ ident_enum! {
 
 ident_enum! {
     #[parse_error_msg = "unknown instruction output"]
-    enum InstructionOutput {
+    enum InstructionOutputName {
         Rt,
         Carry,
         Overflow,
@@ -170,32 +170,101 @@ ident_enum! {
 }
 
 #[derive(Debug)]
+struct InstructionArg<T: InstructionArgName> {
+    name: T,
+    register: Option<LitStr>,
+}
+
+impl<T: InstructionArgName> InstructionArg<T> {
+    fn error_if_register_is_specified(&self) -> syn::Result<()> {
+        match &self.register {
+            None => Ok(()),
+            Some(register) => Err(Error::new_spanned(
+                register,
+                format_args!("register specification not allowed on {}", self.name.name()),
+            )),
+        }
+    }
+}
+
+impl<T: InstructionArgName> Parse for InstructionArg<T> {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let name = input.parse()?;
+        let register = if input.peek(token::Paren) {
+            let register_tokens;
+            parenthesized!(register_tokens in input);
+            let register: LitStr = register_tokens.parse()?;
+            match &*register.value() {
+                "r1" => Err("stack pointer (r1) can't be used as instruction argument"),
+                "r2" => Err("TOC pointer (r2) can't be used as instruction argument"),
+                "r13" => {
+                    Err("system thread id register (r13) can't be used as instruction argument")
+                }
+                "r0" | "r3" | "r4" | "r5" | "r6" | "r7" | "r8" | "r9" | "r10" | "r11" | "r12"
+                | "r14" | "r15" | "r16" | "r17" | "r18" | "r19" | "r20" | "r21" | "r22" | "r23"
+                | "r24" | "r25" | "r26" | "r27" | "r28" | "r29" | "r30" | "r31" => Ok(()),
+                _ => Err("unknown register: valid values are r0, r3..r12, r14..r31"),
+            }
+            .map_err(|msg| Error::new_spanned(&register, msg))?;
+            Some(register)
+        } else {
+            None
+        };
+        Ok(Self { name, register })
+    }
+}
+
+type InstructionInput = InstructionArg<InstructionInputName>;
+type InstructionOutput = InstructionArg<InstructionOutputName>;
+
+impl InstructionInput {
+    fn constraint(&self) -> LitStr {
+        if let Some(register) = &self.register {
+            LitStr::new(&format!("{{{}}}", register.value()), register.span())
+        } else {
+            LitStr::new("b", Span::call_site())
+        }
+    }
+}
+
+impl InstructionOutput {
+    fn constraint(&self) -> LitStr {
+        if let Some(register) = &self.register {
+            LitStr::new(&format!("=&{{{}}}", register.value()), register.span())
+        } else {
+            LitStr::new("=&b", Span::call_site())
+        }
+    }
+}
+
+#[derive(Debug)]
 struct Instruction {
     enumerant: Ident,
     fn_name: Ident,
     inputs: Punctuated<InstructionInput, Token!(,)>,
     outputs: Punctuated<InstructionOutput, Token!(,)>,
     instruction_name: LitStr,
+    literal_instruction_text: Option<LitStr>,
 }
 
-fn check_duplicate_free<'a, T: InstructionArg + 'a>(
-    args: impl IntoIterator<Item = &'a T>,
+fn check_duplicate_free<'a, T: InstructionArgName + 'a>(
+    args: impl IntoIterator<Item = &'a InstructionArg<T>>,
 ) -> syn::Result<()> {
     let mut seen_args = HashMap::new();
     for arg in args {
-        if let Some(prev_arg) = seen_args.insert(arg.enumerant(), arg) {
+        if let Some(prev_arg) = seen_args.insert(arg.name.enumerant(), arg) {
             let mut error = Error::new(
-                arg.span().clone(),
+                arg.name.span().clone(),
                 format_args!(
                     "duplicate instruction argument: {}",
-                    arg.clone().into_ident()
+                    arg.name.clone().into_ident()
                 ),
             );
             error.combine(Error::new(
-                prev_arg.span().clone(),
+                prev_arg.name.span().clone(),
                 format_args!(
                     "duplicate instruction argument: {}",
-                    prev_arg.clone().into_ident()
+                    prev_arg.name.clone().into_ident()
                 ),
             ));
             return Err(error);
@@ -232,12 +301,20 @@ impl Parse for Instruction {
         let body_tokens;
         braced!(body_tokens in input);
         let instruction_name: LitStr = body_tokens.parse()?;
+        let literal_instruction_text;
+        if body_tokens.peek(Token!(:)) {
+            body_tokens.parse::<Token!(:)>()?;
+            literal_instruction_text = Some(body_tokens.parse()?);
+        } else {
+            literal_instruction_text = None;
+        }
         Ok(Self {
             enumerant,
             fn_name,
             inputs,
             outputs,
             instruction_name,
+            literal_instruction_text,
         })
     }
 }
@@ -246,12 +323,12 @@ impl Instruction {
     fn map_input_registers(&self) -> syn::Result<Vec<TokenStream>> {
         let mut retval = Vec::new();
         for input in &self.inputs {
-            retval.push(match input {
-                InstructionInput::Ra(_) => quote! {InstructionInputRegister::Ra},
-                InstructionInput::Rb(_) => quote! {InstructionInputRegister::Rb},
-                InstructionInput::Rc(_) => quote! {InstructionInputRegister::Rc},
-                InstructionInput::Carry(_) => quote! {InstructionInputRegister::Carry},
-                InstructionInput::Overflow(_) => quote! {InstructionInputRegister::Overflow},
+            retval.push(match input.name {
+                InstructionInputName::Ra(_) => quote! {InstructionInputRegister::Ra},
+                InstructionInputName::Rb(_) => quote! {InstructionInputRegister::Rb},
+                InstructionInputName::Rc(_) => quote! {InstructionInputRegister::Rc},
+                InstructionInputName::Carry(_) => quote! {InstructionInputRegister::Carry},
+                InstructionInputName::Overflow(_) => quote! {InstructionInputRegister::Overflow},
             });
         }
         Ok(retval)
@@ -263,8 +340,14 @@ impl Instruction {
             inputs,
             outputs,
             instruction_name,
+            literal_instruction_text,
         } = self;
-        let asm_instr = Assembly::from(instruction_name.value());
+        let asm_instr = Assembly::from(
+            literal_instruction_text
+                .as_ref()
+                .unwrap_or(instruction_name)
+                .value(),
+        );
         let mut asm_instr_args = Vec::new();
         let mut before_instr_asm_lines = Vec::<Assembly>::new();
         let mut after_instr_asm_lines = Vec::<Assembly>::new();
@@ -274,61 +357,72 @@ impl Instruction {
         let mut need_overflow_output = false;
         let mut need_cr_output = false;
         for output in outputs {
-            match output {
-                InstructionOutput::Rt(_) => {
+            match output.name {
+                InstructionOutputName::Rt(_) => {
                     before_asm.push(quote! {let rt: u64;});
-                    asm_instr_args.push(assembly! {"$" output{"=&b"(rt)} });
+                    let constraint = output.constraint();
+                    asm_instr_args.push(assembly! {"$" output{#constraint(rt)} });
                     after_asm.push(quote! {retval.rt = Some(rt);});
                 }
-                InstructionOutput::Carry(_) => {
+                InstructionOutputName::Carry(_) => {
+                    output.error_if_register_is_specified()?;
                     need_carry_output = true;
                 }
-                InstructionOutput::Overflow(_) => {
+                InstructionOutputName::Overflow(_) => {
+                    output.error_if_register_is_specified()?;
                     need_overflow_output = true;
                 }
-                InstructionOutput::CR0(_) => {
+                InstructionOutputName::CR0(_) => {
+                    output.error_if_register_is_specified()?;
                     need_cr_output = true;
                     after_asm.push(quote! {
                         retval.cr0 = Some(ConditionRegister::from_cr_field(cr, 0));
                     });
                 }
-                InstructionOutput::CR1(_) => {
+                InstructionOutputName::CR1(_) => {
+                    output.error_if_register_is_specified()?;
                     need_cr_output = true;
                     after_asm.push(quote! {
                         retval.cr1 = Some(ConditionRegister::from_cr_field(cr, 1));
                     });
                 }
-                InstructionOutput::CR2(_) => {
+                InstructionOutputName::CR2(_) => {
+                    output.error_if_register_is_specified()?;
                     need_cr_output = true;
                     after_asm.push(quote! {
                         retval.cr2 = Some(ConditionRegister::from_cr_field(cr, 2));
                     });
                 }
-                InstructionOutput::CR3(_) => {
+                InstructionOutputName::CR3(_) => {
+                    output.error_if_register_is_specified()?;
                     need_cr_output = true;
                     after_asm.push(quote! {
                         retval.cr3 = Some(ConditionRegister::from_cr_field(cr, 3));
                     });
                 }
-                InstructionOutput::CR4(_) => {
+                InstructionOutputName::CR4(_) => {
+                    output.error_if_register_is_specified()?;
                     need_cr_output = true;
                     after_asm.push(quote! {
                         retval.cr4 = Some(ConditionRegister::from_cr_field(cr, 4));
                     });
                 }
-                InstructionOutput::CR5(_) => {
+                InstructionOutputName::CR5(_) => {
+                    output.error_if_register_is_specified()?;
                     need_cr_output = true;
                     after_asm.push(quote! {
                         retval.cr5 = Some(ConditionRegister::from_cr_field(cr, 5));
                     });
                 }
-                InstructionOutput::CR6(_) => {
+                InstructionOutputName::CR6(_) => {
+                    output.error_if_register_is_specified()?;
                     need_cr_output = true;
                     after_asm.push(quote! {
                         retval.cr6 = Some(ConditionRegister::from_cr_field(cr, 6));
                     });
                 }
-                InstructionOutput::CR7(_) => {
+                InstructionOutputName::CR7(_) => {
+                    output.error_if_register_is_specified()?;
                     need_cr_output = true;
                     after_asm.push(quote! {
                         retval.cr7 = Some(ConditionRegister::from_cr_field(cr, 7));
@@ -339,23 +433,28 @@ impl Instruction {
         let mut need_carry_input = false;
         let mut need_overflow_input = false;
         for input in inputs {
-            match input {
-                InstructionInput::Ra(_) => {
+            match input.name {
+                InstructionInputName::Ra(_) => {
                     before_asm.push(quote! {let ra: u64 = inputs.try_get_ra()?;});
-                    asm_instr_args.push(assembly! {"$" input{"b"(ra)} });
+                    let constraint = input.constraint();
+                    asm_instr_args.push(assembly! {"$" input{#constraint(ra)} });
                 }
-                InstructionInput::Rb(_) => {
+                InstructionInputName::Rb(_) => {
                     before_asm.push(quote! {let rb: u64 = inputs.try_get_rb()?;});
-                    asm_instr_args.push(assembly! {"$" input{"b"(rb)} });
+                    let constraint = input.constraint();
+                    asm_instr_args.push(assembly! {"$" input{#constraint(rb)} });
                 }
-                InstructionInput::Rc(_) => {
+                InstructionInputName::Rc(_) => {
                     before_asm.push(quote! {let rc: u64 = inputs.try_get_rc()?;});
-                    asm_instr_args.push(assembly! {"$" input{"b"(rc)} });
+                    let constraint = input.constraint();
+                    asm_instr_args.push(assembly! {"$" input{#constraint(rc)} });
                 }
-                InstructionInput::Carry(_) => {
+                InstructionInputName::Carry(_) => {
+                    input.error_if_register_is_specified()?;
                     need_carry_input = true;
                 }
-                InstructionInput::Overflow(_) => {
+                InstructionInputName::Overflow(_) => {
+                    input.error_if_register_is_specified()?;
                     need_overflow_input = true;
                 }
             }
@@ -430,7 +529,12 @@ impl Instruction {
         append_assembly!(final_asm; (asm_instr));
         let mut separator = " ";
         for i in asm_instr_args {
-            append_assembly!(final_asm; (separator) (i));
+            if literal_instruction_text.is_some() {
+                let i = i.args_without_text();
+                append_assembly!(final_asm; (i));
+            } else {
+                append_assembly!(final_asm; (separator) (i));
+            }
             separator = ", ";
         }
         for i in after_instr_asm_lines {
@@ -477,6 +581,7 @@ impl Instructions {
                 inputs: _,
                 outputs: _,
                 instruction_name,
+                literal_instruction_text: _,
             } = instruction;
             fn_names.push(fn_name);
             enumerants.push(enumerant);

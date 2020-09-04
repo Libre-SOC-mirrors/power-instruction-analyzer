@@ -459,6 +459,12 @@ instructions! {
         "subfzeo."
     }
 
+    #[enumerant = AddEX]
+    fn addex(Ra("r3"), Rb("r4"), Overflow) -> (Rt("r5"), Overflow) {
+        // work around LLVM not supporting addex instruction:
+        "addex" : ".long 0x7CA32154 # addex r5, r3, r4, 0"
+    }
+
     // divde
     #[enumerant = DivDE]
     fn divde(Ra, Rb) -> (Rt) {

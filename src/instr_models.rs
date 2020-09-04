@@ -261,6 +261,31 @@ pub fn subfzeo(inputs: InstructionInput) -> InstructionResult {
     })
 }
 
+pub fn addex(inputs: InstructionInput) -> InstructionResult {
+    let ra: u64 = inputs.try_get_ra()?;
+    let rb: u64 = inputs.try_get_ra()?;
+    let OverflowFlags {
+        ov: carry_in, so, ..
+    } = inputs.try_get_overflow()?;
+    let result_u128 = ra as u128 + rb as u128 + carry_in as u128;
+    let result32_u128 = ra as u32 as u128 + rb as u32 as u128 + carry_in as u128;
+    let result = result_u128 as u64;
+    let carry = u64::try_from(result_u128).is_err();
+    let carry32 = u32::try_from(result32_u128).is_err();
+    Ok(InstructionOutput {
+        rt: Some(result),
+        overflow: Some(propagate_so(
+            OverflowFlags {
+                so,
+                ov: carry,
+                ov32: carry32,
+            },
+            inputs,
+        )?),
+        ..InstructionOutput::default()
+    })
+}
+
 create_instr_variants_ov_cr!(divde, divdeo, divde_, divdeo_, i64);
 
 pub fn divdeo(inputs: InstructionInput) -> InstructionResult {
