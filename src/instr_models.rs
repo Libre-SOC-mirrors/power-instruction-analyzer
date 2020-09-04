@@ -274,14 +274,12 @@ pub fn addex(inputs: InstructionInput) -> InstructionResult {
     let carry32 = u32::try_from(result32_u128).is_err();
     Ok(InstructionOutput {
         rt: Some(result),
-        overflow: Some(propagate_so(
-            OverflowFlags {
-                so,
-                ov: carry,
-                ov32: carry32,
-            },
-            inputs,
-        )?),
+        // doesn't change `so` on purpose
+        overflow: Some(OverflowFlags {
+            so,
+            ov: carry,
+            ov32: carry32,
+        }),
         ..InstructionOutput::default()
     })
 }
