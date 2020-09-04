@@ -263,7 +263,7 @@ pub fn subfzeo(inputs: InstructionInput) -> InstructionResult {
 
 pub fn addex(inputs: InstructionInput) -> InstructionResult {
     let ra: u64 = inputs.try_get_ra()?;
-    let rb: u64 = inputs.try_get_ra()?;
+    let rb: u64 = inputs.try_get_rb()?;
     let OverflowFlags {
         ov: carry_in, so, ..
     } = inputs.try_get_overflow()?;
