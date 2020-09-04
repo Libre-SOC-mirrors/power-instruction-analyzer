@@ -465,6 +465,24 @@ instructions! {
         "addex" : ".long 0x7CA32154 # addex r5, r3, r4, 0"
     }
 
+    // neg
+    #[enumerant = Neg]
+    fn neg(Ra) -> (Rt) {
+        "neg"
+    }
+    #[enumerant = NegO]
+    fn nego(Ra, Overflow) -> (Rt, Overflow) {
+        "nego"
+    }
+    #[enumerant = Neg_]
+    fn neg_(Ra, Overflow) -> (Rt, CR0) {
+        "neg."
+    }
+    #[enumerant = NegO_]
+    fn nego_(Ra, Overflow) -> (Rt, Overflow, CR0) {
+        "nego."
+    }
+
     // divde
     #[enumerant = DivDE]
     fn divde(Ra, Rb) -> (Rt) {

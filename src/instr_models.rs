@@ -284,6 +284,20 @@ pub fn addex(inputs: InstructionInput) -> InstructionResult {
     })
 }
 
+create_instr_variants_ov_cr!(neg, nego, neg_, nego_, i64);
+
+pub fn nego(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as i64;
+    let result = ra.wrapping_neg() as u64;
+    let ov = ra.checked_neg().is_none();
+    let ov32 = (ra as i32).checked_neg().is_none();
+    Ok(InstructionOutput {
+        rt: Some(result),
+        overflow: Some(propagate_so(OverflowFlags { so: ov, ov, ov32 }, inputs)?),
+        ..InstructionOutput::default()
+    })
+}
+
 create_instr_variants_ov_cr!(divde, divdeo, divde_, divdeo_, i64);
 
 pub fn divdeo(inputs: InstructionInput) -> InstructionResult {
