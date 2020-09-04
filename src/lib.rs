@@ -387,6 +387,78 @@ instructions! {
         "subfeo."
     }
 
+    // addme
+    #[enumerant = AddME]
+    fn addme(Ra, Carry) -> (Rt, Carry) {
+        "addme"
+    }
+    #[enumerant = AddMEO]
+    fn addmeo(Ra, Overflow, Carry) -> (Rt, Carry, Overflow) {
+        "addmeo"
+    }
+    #[enumerant = AddME_]
+    fn addme_(Ra, Overflow, Carry) -> (Rt, Carry, CR0) {
+        "addme."
+    }
+    #[enumerant = AddMEO_]
+    fn addmeo_(Ra, Overflow, Carry) -> (Rt, Carry, Overflow, CR0) {
+        "addmeo."
+    }
+
+    // subfme
+    #[enumerant = SubFME]
+    fn subfme(Ra, Carry) -> (Rt, Carry) {
+        "subfme"
+    }
+    #[enumerant = SubFMEO]
+    fn subfmeo(Ra, Overflow, Carry) -> (Rt, Carry, Overflow) {
+        "subfmeo"
+    }
+    #[enumerant = SubFME_]
+    fn subfme_(Ra, Overflow, Carry) -> (Rt, Carry, CR0) {
+        "subfme."
+    }
+    #[enumerant = SubFMEO_]
+    fn subfmeo_(Ra, Overflow, Carry) -> (Rt, Carry, Overflow, CR0) {
+        "subfmeo."
+    }
+
+    // addze
+    #[enumerant = AddZE]
+    fn addze(Ra, Carry) -> (Rt, Carry) {
+        "addze"
+    }
+    #[enumerant = AddZEO]
+    fn addzeo(Ra, Overflow, Carry) -> (Rt, Carry, Overflow) {
+        "addzeo"
+    }
+    #[enumerant = AddZE_]
+    fn addze_(Ra, Overflow, Carry) -> (Rt, Carry, CR0) {
+        "addze."
+    }
+    #[enumerant = AddZEO_]
+    fn addzeo_(Ra, Overflow, Carry) -> (Rt, Carry, Overflow, CR0) {
+        "addzeo."
+    }
+
+    // subfze
+    #[enumerant = SubFZE]
+    fn subfze(Ra, Carry) -> (Rt, Carry) {
+        "subfze"
+    }
+    #[enumerant = SubFZEO]
+    fn subfzeo(Ra, Overflow, Carry) -> (Rt, Carry, Overflow) {
+        "subfzeo"
+    }
+    #[enumerant = SubFZE_]
+    fn subfze_(Ra, Overflow, Carry) -> (Rt, Carry, CR0) {
+        "subfze."
+    }
+    #[enumerant = SubFZEO_]
+    fn subfzeo_(Ra, Overflow, Carry) -> (Rt, Carry, Overflow, CR0) {
+        "subfzeo."
+    }
+
     // divde
     #[enumerant = DivDE]
     fn divde(Ra, Rb) -> (Rt) {

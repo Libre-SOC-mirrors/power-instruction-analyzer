@@ -148,14 +148,106 @@ pub fn addeo(inputs: InstructionInput) -> InstructionResult {
 create_instr_variants_ov_cr!(subfe, subfeo, subfe_, subfeo_, i64);
 
 pub fn subfeo(inputs: InstructionInput) -> InstructionResult {
-    let ra = inputs.try_get_ra()?;
-    let rb = inputs.try_get_rb()?;
+    let ra: u64 = inputs.try_get_ra()?;
+    let rb: u64 = inputs.try_get_rb()?;
     let carry_in = inputs.try_get_carry()?.ca;
     let not_ra = !ra;
     let result_i128 = not_ra as i64 as i128 + rb as i64 as i128 + carry_in as i128;
     let result_u128 = not_ra as u128 + rb as u128 + carry_in as u128;
     let result32_i128 = not_ra as i32 as i128 + rb as i32 as i128 + carry_in as i128;
     let result32_u128 = not_ra as u32 as u128 + rb as u32 as u128 + carry_in as u128;
+    let result = result_u128 as u64;
+    let ov = i64::try_from(result_i128).is_err();
+    let ov32 = i32::try_from(result32_i128).is_err();
+    let ca = u64::try_from(result_u128).is_err();
+    let ca32 = u32::try_from(result32_u128).is_err();
+    Ok(InstructionOutput {
+        rt: Some(result),
+        overflow: Some(propagate_so(OverflowFlags { so: ov, ov, ov32 }, inputs)?),
+        carry: Some(CarryFlags { ca, ca32 }),
+        ..InstructionOutput::default()
+    })
+}
+
+create_instr_variants_ov_cr!(addme, addmeo, addme_, addmeo_, i64);
+
+pub fn addmeo(inputs: InstructionInput) -> InstructionResult {
+    let ra: u64 = inputs.try_get_ra()?;
+    let rb: u64 = !0;
+    let carry_in = inputs.try_get_carry()?.ca;
+    let result_i128 = ra as i64 as i128 + rb as i64 as i128 + carry_in as i128;
+    let result_u128 = ra as u128 + rb as u128 + carry_in as u128;
+    let result32_i128 = ra as i32 as i128 + rb as i32 as i128 + carry_in as i128;
+    let result32_u128 = ra as u32 as u128 + rb as u32 as u128 + carry_in as u128;
+    let result = result_u128 as u64;
+    let ov = i64::try_from(result_i128).is_err();
+    let ov32 = i32::try_from(result32_i128).is_err();
+    let ca = u64::try_from(result_u128).is_err();
+    let ca32 = u32::try_from(result32_u128).is_err();
+    Ok(InstructionOutput {
+        rt: Some(result),
+        overflow: Some(propagate_so(OverflowFlags { so: ov, ov, ov32 }, inputs)?),
+        carry: Some(CarryFlags { ca, ca32 }),
+        ..InstructionOutput::default()
+    })
+}
+
+create_instr_variants_ov_cr!(subfme, subfmeo, subfme_, subfmeo_, i64);
+
+pub fn subfmeo(inputs: InstructionInput) -> InstructionResult {
+    let ra: u64 = inputs.try_get_ra()?;
+    let rb: u64 = !0;
+    let carry_in = inputs.try_get_carry()?.ca;
+    let not_ra = !ra;
+    let result_i128 = not_ra as i64 as i128 + rb as i64 as i128 + carry_in as i128;
+    let result_u128 = not_ra as u128 + rb as u128 + carry_in as u128;
+    let result32_i128 = not_ra as i32 as i128 + rb as i32 as i128 + carry_in as i128;
+    let result32_u128 = not_ra as u32 as u128 + rb as u32 as u128 + carry_in as u128;
+    let result = result_u128 as u64;
+    let ov = i64::try_from(result_i128).is_err();
+    let ov32 = i32::try_from(result32_i128).is_err();
+    let ca = u64::try_from(result_u128).is_err();
+    let ca32 = u32::try_from(result32_u128).is_err();
+    Ok(InstructionOutput {
+        rt: Some(result),
+        overflow: Some(propagate_so(OverflowFlags { so: ov, ov, ov32 }, inputs)?),
+        carry: Some(CarryFlags { ca, ca32 }),
+        ..InstructionOutput::default()
+    })
+}
+
+create_instr_variants_ov_cr!(addze, addzeo, addze_, addzeo_, i64);
+
+pub fn addzeo(inputs: InstructionInput) -> InstructionResult {
+    let ra: u64 = inputs.try_get_ra()?;
+    let carry_in = inputs.try_get_carry()?.ca;
+    let result_i128 = ra as i64 as i128 + carry_in as i128;
+    let result_u128 = ra as u128 + carry_in as u128;
+    let result32_i128 = ra as i32 as i128 + carry_in as i128;
+    let result32_u128 = ra as u32 as u128 + carry_in as u128;
+    let result = result_u128 as u64;
+    let ov = i64::try_from(result_i128).is_err();
+    let ov32 = i32::try_from(result32_i128).is_err();
+    let ca = u64::try_from(result_u128).is_err();
+    let ca32 = u32::try_from(result32_u128).is_err();
+    Ok(InstructionOutput {
+        rt: Some(result),
+        overflow: Some(propagate_so(OverflowFlags { so: ov, ov, ov32 }, inputs)?),
+        carry: Some(CarryFlags { ca, ca32 }),
+        ..InstructionOutput::default()
+    })
+}
+
+create_instr_variants_ov_cr!(subfze, subfzeo, subfze_, subfzeo_, i64);
+
+pub fn subfzeo(inputs: InstructionInput) -> InstructionResult {
+    let ra: u64 = inputs.try_get_ra()?;
+    let carry_in = inputs.try_get_carry()?.ca;
+    let not_ra = !ra;
+    let result_i128 = not_ra as i64 as i128 + carry_in as i128;
+    let result_u128 = not_ra as u128 + carry_in as u128;
+    let result32_i128 = not_ra as i32 as i128 + carry_in as i128;
+    let result32_u128 = not_ra as u32 as u128 + carry_in as u128;
     let result = result_u128 as u64;
     let ov = i64::try_from(result_i128).is_err();
     let ov32 = i32::try_from(result32_i128).is_err();
