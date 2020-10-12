@@ -147,6 +147,25 @@ impl ToAssembly for String {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub(crate) struct AssemblyMetavariableId(u64);
+
+impl AssemblyMetavariableId {
+    pub(crate) fn new() -> Self {
+        // don't start at zero to help avoid confusing id with indexes
+        static NEXT_ID: AtomicU64 = AtomicU64::new(10000);
+        AssemblyMetavariableId(NEXT_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+impl ToAssembly for AssemblyMetavariableId {
+    fn append_to(&self, retval: &mut Assembly) {
+        retval
+            .text_fragments
+            .push(AssemblyTextFragment::Metavariable(*self));
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub(crate) struct AssemblyArgId(u64);
 
 impl AssemblyArgId {
@@ -229,6 +248,7 @@ impl_assembly_arg! {
 pub(crate) enum AssemblyTextFragment {
     Text(String),
     ArgIndex(AssemblyArgId),
+    Metavariable(AssemblyMetavariableId),
 }
 
 #[derive(Debug, Default, Clone)]
@@ -269,6 +289,21 @@ impl From<&'_ AssemblyArgId> for Assembly {
     }
 }
 
+impl From<AssemblyMetavariableId> for Assembly {
+    fn from(arg_id: AssemblyMetavariableId) -> Self {
+        Self {
+            text_fragments: vec![AssemblyTextFragment::Metavariable(arg_id)],
+            ..Self::default()
+        }
+    }
+}
+
+impl From<&'_ AssemblyMetavariableId> for Assembly {
+    fn from(arg_id: &AssemblyMetavariableId) -> Self {
+        Self::from(*arg_id)
+    }
+}
+
 impl Assembly {
     pub(crate) fn new() -> Self {
         Self::default()
@@ -303,6 +338,20 @@ impl Assembly {
             ..Self::default()
         }
     }
+    pub(crate) fn replace_metavariables<R>(
+        &self,
+        mut f: impl FnMut(AssemblyMetavariableId) -> Result<Assembly, R>,
+    ) -> Result<Assembly, R> {
+        let mut retval = self.args_without_text();
+        for text_fragment in &self.text_fragments {
+            match text_fragment {
+                AssemblyTextFragment::Text(text) => text.append_to(&mut retval),
+                AssemblyTextFragment::ArgIndex(id) => id.append_to(&mut retval),
+                AssemblyTextFragment::Metavariable(id) => f(*id)?.append_to(&mut retval),
+            }
+        }
+        Ok(retval)
+    }
     pub(crate) fn args_without_text(&self) -> Assembly {
         Assembly {
             text_fragments: Vec::new(),
@@ -331,6 +380,13 @@ impl Assembly {
         for text_fragment in &self.text_fragments {
             match text_fragment {
                 AssemblyTextFragment::Text(text) => retval += text,
+                AssemblyTextFragment::Metavariable(id) => {
+                    panic!(
+                        "metavariables are not allowed when converting \
+                            assembly to text: metavariable id={:?}\n{:#?}",
+                        id, self
+                    );
+                }
                 AssemblyTextFragment::ArgIndex(id) => {
                     if let Some(index) = id_index_map.get(id) {
                         write!(retval, "{}", index).unwrap();
@@ -353,6 +409,7 @@ impl ToAssembly for Assembly {
         for text_fragment in &self.text_fragments {
             match *text_fragment {
                 AssemblyTextFragment::Text(ref text) => text.append_to(retval),
+                AssemblyTextFragment::Metavariable(id) => id.append_to(retval),
                 AssemblyTextFragment::ArgIndex(id) => id.append_to(retval),
             }
         }

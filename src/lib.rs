@@ -189,6 +189,10 @@ pub enum InstructionInputRegister {
     Carry,
     #[serde(rename = "overflow")]
     Overflow,
+    #[serde(rename = "immediate_s16")]
+    ImmediateS16,
+    #[serde(rename = "immediate_u16")]
+    ImmediateU16,
 }
 
 forward_display_to_serde!(InstructionInputRegister);
@@ -213,6 +217,12 @@ pub struct InstructionInput {
         with = "serde_hex::SerdeHex"
     )]
     pub rc: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "serde_hex::SerdeHex"
+    )]
+    pub immediate: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none", flatten)]
     pub carry: Option<CarryFlags>,
     #[serde(default, skip_serializing_if = "Option::is_none", flatten)]
@@ -255,6 +265,21 @@ impl_instr_try_get! {
     }
 }
 
+impl InstructionInput {
+    fn try_get_immediate(
+        self,
+        input: InstructionInputRegister,
+    ) -> Result<u64, MissingInstructionInput> {
+        self.immediate.ok_or(MissingInstructionInput { input })
+    }
+    pub fn try_get_immediate_u16(self) -> Result<u16, MissingInstructionInput> {
+        Ok(self.try_get_immediate(InstructionInputRegister::ImmediateU16)? as u16)
+    }
+    pub fn try_get_immediate_s16(self) -> Result<i16, MissingInstructionInput> {
+        Ok(self.try_get_immediate(InstructionInputRegister::ImmediateS16)? as i16)
+    }
+}
+
 fn is_false(v: &bool) -> bool {
     !v
 }
@@ -279,6 +304,14 @@ pub struct WholeTest {
 }
 
 instructions! {
+    // TODO(programmerjake): finish implementing immediate args
+    /*
+    #[enumerant = AddI]
+    fn add(Ra, ImmediateS16) -> (Rt) {
+        "addi"
+    }
+    */
+
     // add
     #[enumerant = Add]
     fn add(Ra, Rb) -> (Rt) {

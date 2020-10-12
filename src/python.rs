@@ -341,8 +341,8 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
         #[pymodule(m)]
         #[pyclass(name = InstructionInput)]
         #[wrapped(value: InstructionInput)]
-        #[args(ra="None", rb="None", rc="None", carry="None", overflow="None")]
-        #[text_signature = "(ra=None, rb=None, rc=None, carry=None, overflow=None)"]
+        #[args(ra="None", rb="None", rc="None", immediate="None", carry="None", overflow="None")]
+        #[text_signature = "(ra=None, rb=None, rc=None, immediate=None, carry=None, overflow=None)"]
         struct PyInstructionInput {
             #[set = set_ra]
             ra: Option<u64>,
@@ -350,6 +350,8 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
             rb: Option<u64>,
             #[set = set_rc]
             rc: Option<u64>,
+            #[set = set_immediate]
+            immediate: Option<u64>,
             #[set = set_carry]
             carry: Option<CarryFlags>,
             #[set = set_overflow]

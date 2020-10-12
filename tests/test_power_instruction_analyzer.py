@@ -140,7 +140,8 @@ class TestConditionRegister(unittest.TestCase):
 class TestInstructionInput(unittest.TestCase):
     def test_text_signature(self):
         self.assertEqual(pia.InstructionInput.__text_signature__,
-                         "(ra=None, rb=None, rc=None, carry=None, overflow=None)")
+                         "(ra=None, rb=None, rc=None, immediate=None, "
+                         "carry=None, overflow=None)")
 
     def test_fields(self):
         v = pia.InstructionInput(ra=123, rb=456, rc=789)
@@ -153,13 +154,16 @@ class TestInstructionInput(unittest.TestCase):
         self.assertEqual(v.rb, 4567)
         v.rc = 7890
         self.assertEqual(v.rc, 7890)
+        v.immediate = 890
+        self.assertEqual(v.immediate, 890)
 
     def test_str_repr(self):
         v = pia.InstructionInput(ra=123, rb=456, rc=789)
         self.assertEqual(str(v),
                          '{"ra":"0x7B","rb":"0x1C8","rc":"0x315"}')
         self.assertEqual(repr(v),
-                         "InstructionInput(ra=123, rb=456, rc=789, carry=None, overflow=None)")
+                         "InstructionInput(ra=123, rb=456, rc=789, "
+                         "immediate=None, carry=None, overflow=None)")
 
 
 class TestInstructionOutput(unittest.TestCase):

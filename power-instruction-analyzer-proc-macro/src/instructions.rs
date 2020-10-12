@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // See Notices.txt for copyright information
 
-use crate::inline_assembly::{Assembly, AssemblyWithTextSpan};
+use crate::inline_assembly::{Assembly, AssemblyMetavariableId, AssemblyWithTextSpan};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
-use std::{collections::HashMap, fmt, hash::Hash};
+use std::{collections::HashMap, fmt, hash::Hash, mem};
 use syn::{
     braced, bracketed, parenthesized,
     parse::{Parse, ParseStream},
@@ -147,8 +147,30 @@ ident_enum! {
         Ra,
         Rb,
         Rc,
+        ImmediateS16,
+        ImmediateU16,
         Carry,
         Overflow,
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+enum ImmediateShape {
+    S16,
+    U16,
+}
+
+impl InstructionInputName {
+    fn get_immediate_shape(&self) -> Option<ImmediateShape> {
+        match self {
+            InstructionInputName::Ra(_)
+            | InstructionInputName::Rb(_)
+            | InstructionInputName::Rc(_)
+            | InstructionInputName::Carry(_)
+            | InstructionInputName::Overflow(_) => None,
+            InstructionInputName::ImmediateS16(_) => Some(ImmediateShape::S16),
+            InstructionInputName::ImmediateU16(_) => Some(ImmediateShape::U16),
+        }
     }
 }
 
@@ -293,6 +315,17 @@ impl Parse for Instruction {
         parenthesized!(inputs_tokens in input);
         let inputs = inputs_tokens.parse_terminated(InstructionInput::parse)?;
         check_duplicate_free(&inputs)?;
+        let mut found_immediate = false;
+        for input in &inputs {
+            if input.name.get_immediate_shape().is_some() {
+                if mem::replace(&mut found_immediate, true) {
+                    return Err(Error::new_spanned(
+                        &input.name,
+                        "multiple immediates for an instruction are not supported",
+                    ));
+                }
+            }
+        }
         input.parse::<Token!(->)>()?;
         let outputs_tokens;
         parenthesized!(outputs_tokens in input);
@@ -327,6 +360,12 @@ impl Instruction {
                 InstructionInputName::Ra(_) => quote! {InstructionInputRegister::Ra},
                 InstructionInputName::Rb(_) => quote! {InstructionInputRegister::Rb},
                 InstructionInputName::Rc(_) => quote! {InstructionInputRegister::Rc},
+                InstructionInputName::ImmediateS16(_) => {
+                    quote! {InstructionInputRegister::Immediate(ImmediateShape::S16)}
+                }
+                InstructionInputName::ImmediateU16(_) => {
+                    quote! {InstructionInputRegister::Immediate(ImmediateShape::U16)}
+                }
                 InstructionInputName::Carry(_) => quote! {InstructionInputRegister::Carry},
                 InstructionInputName::Overflow(_) => quote! {InstructionInputRegister::Overflow},
             });
@@ -432,6 +471,11 @@ impl Instruction {
         }
         let mut need_carry_input = false;
         let mut need_overflow_input = false;
+        struct Immediate {
+            shape: ImmediateShape,
+            id: AssemblyMetavariableId,
+        }
+        let mut immediate = None;
         for input in inputs {
             match input.name {
                 InstructionInputName::Ra(_) => {
@@ -448,6 +492,14 @@ impl Instruction {
                     before_asm.push(quote! {let rc: u64 = inputs.try_get_rc()?;});
                     let constraint = input.constraint();
                     asm_instr_args.push(assembly! {"$" input{#constraint(rc)} });
+                }
+                InstructionInputName::ImmediateS16(_) | InstructionInputName::ImmediateU16(_) => {
+                    input.error_if_register_is_specified()?;
+                    let shape = input.name.get_immediate_shape().unwrap();
+                    let id = AssemblyMetavariableId::new();
+                    assert!(immediate.is_none());
+                    immediate = Some(Immediate { shape, id });
+                    asm_instr_args.push(id.into());
                 }
                 InstructionInputName::Carry(_) => {
                     input.error_if_register_is_specified()?;
@@ -521,6 +573,9 @@ impl Instruction {
             after_instr_asm_lines.push(assembly! {
                 "mfcr $" output{"=&b"(cr)} clobber{"cr"}
             });
+        }
+        if let Some(Immediate { shape, id }) = immediate {
+            todo!()
         }
         let mut final_asm = assembly! {};
         for i in before_instr_asm_lines {

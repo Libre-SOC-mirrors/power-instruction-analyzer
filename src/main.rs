@@ -51,6 +51,18 @@ fn call_with_inputs(
                     call_with_inputs(inputs, input_registers, f)?;
                 }
             }
+            InstructionInputRegister::ImmediateS16 => {
+                for &i in TEST_VALUES {
+                    inputs.immediate = Some(i as i16 as u64);
+                    call_with_inputs(inputs, input_registers, f)?;
+                }
+            }
+            InstructionInputRegister::ImmediateU16 => {
+                for &i in TEST_VALUES {
+                    inputs.immediate = Some(i as u16 as u64);
+                    call_with_inputs(inputs, input_registers, f)?;
+                }
+            }
             InstructionInputRegister::Carry => {
                 for &ca in BOOL_VALUES {
                     for &ca32 in BOOL_VALUES {
