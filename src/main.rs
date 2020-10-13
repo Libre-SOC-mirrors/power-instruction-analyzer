@@ -22,6 +22,14 @@ const TEST_VALUES: &[u64] = &[
     0x1234_5678_8000_0000,
     0x1234_5678_8000_0001,
     0x1234_5678_FFFF_FFFF,
+    0x7FFE,
+    0x7FFF,
+    0x8000,
+    0x8001,
+];
+
+const IMMED16_TEST_VALUES: &[u16] = &[
+    0x0, 0x1, 0x2, 0xFFFF, 0xFFFE, 0x7FFE, 0x7FFF, 0x8000, 0x8001,
 ];
 
 const BOOL_VALUES: &[bool] = &[false, true];
@@ -52,14 +60,14 @@ fn call_with_inputs(
                 }
             }
             InstructionInputRegister::ImmediateS16 => {
-                for &i in TEST_VALUES {
+                for &i in IMMED16_TEST_VALUES {
                     inputs.immediate = Some(i as i16 as u64);
                     call_with_inputs(inputs, input_registers, f)?;
                 }
             }
             InstructionInputRegister::ImmediateU16 => {
-                for &i in TEST_VALUES {
-                    inputs.immediate = Some(i as u16 as u64);
+                for &i in IMMED16_TEST_VALUES {
+                    inputs.immediate = Some(i as u64);
                     call_with_inputs(inputs, input_registers, f)?;
                 }
             }
