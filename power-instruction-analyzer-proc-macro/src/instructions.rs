@@ -160,6 +160,45 @@ enum ImmediateShape {
     U16,
 }
 
+impl ImmediateShape {
+    fn is_signed(self) -> bool {
+        match self {
+            ImmediateShape::S16 => true,
+            ImmediateShape::U16 => false,
+        }
+    }
+    fn bits(self) -> usize {
+        match self {
+            ImmediateShape::S16 | ImmediateShape::U16 => 16,
+        }
+    }
+    fn bit_mask(self) -> u64 {
+        match self.bits() {
+            64 => u64::MAX,
+            bits => (1u64 << bits) - 1,
+        }
+    }
+    fn value_to_string(self, bits: u64) -> String {
+        let bits = self.normalize_value(bits);
+        if self.is_signed() {
+            (bits as i64).to_string()
+        } else {
+            bits.to_string()
+        }
+    }
+    fn normalize_value(self, mut bits: u64) -> u64 {
+        bits &= self.bit_mask();
+        if self.is_signed() && (bits >> (self.bits() - 1)) != 0 {
+            bits |= !self.bit_mask();
+        }
+        bits
+    }
+    /// returns all the immediate values starting at zero and incrementing from there
+    fn values(self) -> impl Iterator<Item = u64> {
+        (0..=self.bit_mask()).map(move |v| self.normalize_value(v))
+    }
+}
+
 impl InstructionInputName {
     fn get_immediate_shape(&self) -> Option<ImmediateShape> {
         match self {
@@ -170,6 +209,21 @@ impl InstructionInputName {
             | InstructionInputName::Overflow(_) => None,
             InstructionInputName::ImmediateS16(_) => Some(ImmediateShape::S16),
             InstructionInputName::ImmediateU16(_) => Some(ImmediateShape::U16),
+        }
+    }
+    fn get_instruction_input_register_tokens(&self) -> TokenStream {
+        match self {
+            InstructionInputName::Ra(_) => quote! {InstructionInputRegister::Ra},
+            InstructionInputName::Rb(_) => quote! {InstructionInputRegister::Rb},
+            InstructionInputName::Rc(_) => quote! {InstructionInputRegister::Rc},
+            InstructionInputName::ImmediateS16(_) => {
+                quote! {InstructionInputRegister::ImmediateS16}
+            }
+            InstructionInputName::ImmediateU16(_) => {
+                quote! {InstructionInputRegister::ImmediateU16}
+            }
+            InstructionInputName::Carry(_) => quote! {InstructionInputRegister::Carry},
+            InstructionInputName::Overflow(_) => quote! {InstructionInputRegister::Overflow},
         }
     }
 }
@@ -338,6 +392,12 @@ impl Parse for Instruction {
         if body_tokens.peek(Token!(:)) {
             body_tokens.parse::<Token!(:)>()?;
             literal_instruction_text = Some(body_tokens.parse()?);
+            if found_immediate {
+                return Err(Error::new_spanned(
+                    &literal_instruction_text,
+                    "literal instruction text is not supported for instructions with immediates",
+                ));
+            }
         } else {
             literal_instruction_text = None;
         }
@@ -356,19 +416,7 @@ impl Instruction {
     fn map_input_registers(&self) -> syn::Result<Vec<TokenStream>> {
         let mut retval = Vec::new();
         for input in &self.inputs {
-            retval.push(match input.name {
-                InstructionInputName::Ra(_) => quote! {InstructionInputRegister::Ra},
-                InstructionInputName::Rb(_) => quote! {InstructionInputRegister::Rb},
-                InstructionInputName::Rc(_) => quote! {InstructionInputRegister::Rc},
-                InstructionInputName::ImmediateS16(_) => {
-                    quote! {InstructionInputRegister::Immediate(ImmediateShape::S16)}
-                }
-                InstructionInputName::ImmediateU16(_) => {
-                    quote! {InstructionInputRegister::Immediate(ImmediateShape::U16)}
-                }
-                InstructionInputName::Carry(_) => quote! {InstructionInputRegister::Carry},
-                InstructionInputName::Overflow(_) => quote! {InstructionInputRegister::Overflow},
-            });
+            retval.push(input.name.get_instruction_input_register_tokens());
         }
         Ok(retval)
     }
@@ -475,7 +523,7 @@ impl Instruction {
             shape: ImmediateShape,
             id: AssemblyMetavariableId,
         }
-        let mut immediate = None;
+        let mut immediate: Option<Immediate> = None;
         for input in inputs {
             match input.name {
                 InstructionInputName::Ra(_) => {
@@ -499,6 +547,14 @@ impl Instruction {
                     let id = AssemblyMetavariableId::new();
                     assert!(immediate.is_none());
                     immediate = Some(Immediate { shape, id });
+                    let mask = shape.bit_mask();
+                    let instruction_input_register =
+                        input.name.get_instruction_input_register_tokens();
+                    before_asm.push(quote! {
+                        let immediate: u64 = inputs.try_get_immediate(
+                            #instruction_input_register
+                        )? & #mask;
+                    });
                     asm_instr_args.push(id.into());
                 }
                 InstructionInputName::Carry(_) => {
@@ -574,24 +630,88 @@ impl Instruction {
                 "mfcr $" output{"=&b"(cr)} clobber{"cr"}
             });
         }
-        if let Some(Immediate { shape, id }) = immediate {
-            todo!()
+        let mut asm_instrs = asm_instr;
+        let mut separator = " ";
+        for i in asm_instr_args {
+            if literal_instruction_text.is_some() {
+                let i = i.args_without_text();
+                append_assembly!(asm_instrs; (i));
+            } else {
+                append_assembly!(asm_instrs; (separator) (i));
+            }
+            separator = ", ";
+        }
+        if let Some(Immediate {
+            shape,
+            id: immediate_id,
+        }) = immediate
+        {
+            let shape: ImmediateShape = shape;
+            assert!(literal_instruction_text.is_none());
+            // save and restore lr and ctr ourselves since LLVM doesn't handle that properly
+            // see https://bugs.llvm.org/show_bug.cgi?id=47811
+            // and https://bugs.llvm.org/show_bug.cgi?id=47812
+            before_asm.push(quote! {let lr_temp: u64;});
+            let lr_temp;
+            before_instr_asm_lines.push(assembly! {"mflr $" output(lr_temp = {"=&b"(lr_temp)})});
+            after_instr_asm_lines.push(assembly! {"mtlr $" (lr_temp)});
+            before_asm.push(quote! {let ctr_temp: u64;});
+            let ctr_temp;
+            before_instr_asm_lines.push(assembly! {"mfctr $" output(ctr_temp = {"=&b"(ctr_temp)})});
+            after_instr_asm_lines.push(assembly! {"mtctr $" (ctr_temp)});
+            let template = mem::replace(&mut asm_instrs, assembly! {});
+            let target_temp;
+            before_asm.push(quote! {let target_temp: u64;});
+            let target_temp2;
+            before_asm.push(quote! {let target_temp2: u64;});
+            append_assembly! {
+                asm_instrs;
+                "bl 3f\n"
+                "4:\n"
+                "mulli $" output(target_temp = {"=&b"(target_temp)}) ", $" input{"b"(immediate)} ", 1f - 0f\n"
+                "addi $" (target_temp) ", $" (target_temp) ", 0f - 4b\n"
+                "mflr $" output(target_temp2 = {"=&b"(target_temp2)}) "\n"
+                "add $" (target_temp) ", $" (target_temp) ", $" (target_temp2) "\n"
+                "mtctr $" (target_temp) "\n"
+                "bctrl\n"
+                "b 2f\n"
+                "3:\n"
+                "blr\n"
+            };
+            let mut count = 0;
+            for (index, immediate) in shape.values().enumerate() {
+                count = index + 1;
+                match index {
+                    0 => {
+                        append_assembly! {asm_instrs; "0:\n"};
+                    }
+                    1 => {
+                        append_assembly! {asm_instrs; "1:\n"};
+                    }
+                    _ => {}
+                }
+                let expanded_template = template
+                    .replace_metavariables(|id| -> syn::Result<_> {
+                        Ok(if id == immediate_id {
+                            shape.value_to_string(immediate).into()
+                        } else {
+                            id.into()
+                        })
+                    })?
+                    .text_without_args();
+                append_assembly! {asm_instrs; (expanded_template) "\n"};
+                append_assembly! {asm_instrs; "blr\n"};
+            }
+            assert!(count >= 1);
+            append_assembly! {asm_instrs; "2:"};
+            let args = template.args_without_text();
+            append_assembly! {asm_instrs; (args)};
         }
         let mut final_asm = assembly! {};
         for i in before_instr_asm_lines {
             append_assembly! {final_asm; (i) "\n"};
         }
-        append_assembly!(final_asm; (asm_instr));
-        let mut separator = " ";
-        for i in asm_instr_args {
-            if literal_instruction_text.is_some() {
-                let i = i.args_without_text();
-                append_assembly!(final_asm; (i));
-            } else {
-                append_assembly!(final_asm; (separator) (i));
-            }
-            separator = ", ";
-        }
+        append_assembly!(final_asm; (asm_instrs));
         for i in after_instr_asm_lines {
             append_assembly! {final_asm; "\n" (i)};
         }

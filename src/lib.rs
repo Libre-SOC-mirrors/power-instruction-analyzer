@@ -304,13 +304,10 @@ pub struct WholeTest {
 }
 
 instructions! {
-    // TODO(programmerjake): finish implementing immediate args
-    /*
     #[enumerant = AddI]
-    fn add(Ra, ImmediateS16) -> (Rt) {
+    fn addi(Ra, ImmediateS16) -> (Rt) {
         "addi"
     }
-    */
 
     // add
     #[enumerant = Add]

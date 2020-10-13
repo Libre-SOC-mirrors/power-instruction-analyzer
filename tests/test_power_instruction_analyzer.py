@@ -227,7 +227,7 @@ class TestInstructionOutput(unittest.TestCase):
 class TestDivInstrs(unittest.TestCase):
     def test(self):
         v = pia.InstructionInput(
-            ra=0x1234, rb=0x56, rc=0x789,
+            ra=0x1234, rb=0x56, rc=0x789, immediate=0x54,
             overflow=pia.OverflowFlags(so=False, ov=True, ov32=True),
             carry=pia.CarryFlags(ca=True, ca32=False))
         for instr in pia.INSTRS:

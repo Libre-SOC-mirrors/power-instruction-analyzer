@@ -56,6 +56,16 @@ macro_rules! create_instr_variants_cr {
     };
 }
 
+pub fn addi(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as i64;
+    let immediate = inputs.try_get_immediate_s16()? as i64;
+    let result = ra.wrapping_add(immediate) as u64;
+    Ok(InstructionOutput {
+        rt: Some(result),
+        ..InstructionOutput::default()
+    })
+}
+
 create_instr_variants_ov_cr!(add, addo, add_, addo_, i64);
 
 pub fn addo(inputs: InstructionInput) -> InstructionResult {
