@@ -695,6 +695,11 @@ instructions! {
         "moduw"
     }
 
+    #[enumerant = MulLI]
+    fn mulli(Ra, ImmediateS16) -> (Rt) {
+        "mulli"
+    }
+
     // mullw
     #[enumerant = MulLW]
     fn mullw(Ra, Rb) -> (Rt) {

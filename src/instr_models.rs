@@ -633,6 +633,16 @@ pub fn moduw(inputs: InstructionInput) -> InstructionResult {
     })
 }
 
+pub fn mulli(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as i64;
+    let immediate = inputs.try_get_immediate_s16()? as i64;
+    let result = ra.wrapping_mul(immediate) as u64;
+    Ok(InstructionOutput {
+        rt: Some(result),
+        ..InstructionOutput::default()
+    })
+}
+
 create_instr_variants_ov_cr!(mullw, mullwo, mullw_, mullwo_, i64);
 
 pub fn mullwo(inputs: InstructionInput) -> InstructionResult {
