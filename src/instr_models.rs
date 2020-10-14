@@ -122,13 +122,18 @@ pub fn subfo(inputs: InstructionInput) -> InstructionResult {
 }
 
 pub fn subfic(inputs: InstructionInput) -> InstructionResult {
-    let ra = inputs.try_get_ra()? as i64;
-    let immediate = inputs.try_get_immediate_s16()? as i64;
-    let immediate_plus_1 = immediate + 1;
+    let ra: u64 = inputs.try_get_ra()?;
+    let immediate: u64 = inputs.try_get_immediate_s16()? as i64 as u64;
     let not_ra = !ra;
-    let result = not_ra.wrapping_add(immediate_plus_1) as u64;
-    let ca = (not_ra as u64).overflowing_add(immediate_plus_1 as u64).1;
-    let ca32 = (not_ra as u32).overflowing_add(immediate_plus_1 as u32).1;
+    let result = not_ra.wrapping_add(immediate).wrapping_add(1);
+    let ca = not_ra
+        .checked_add(immediate)
+        .and_then(|v| v.checked_add(1))
+        .is_none();
+    let ca32 = (not_ra as u32)
+        .checked_add(immediate as u32)
+        .and_then(|v| v.checked_add(1))
+        .is_none();
     Ok(InstructionOutput {
         rt: Some(result),
         carry: Some(CarryFlags { ca, ca32 }),
