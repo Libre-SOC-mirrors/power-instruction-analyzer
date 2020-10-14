@@ -121,6 +121,21 @@ pub fn subfo(inputs: InstructionInput) -> InstructionResult {
     })
 }
 
+pub fn subfic(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as i64;
+    let immediate = inputs.try_get_immediate_s16()? as i64;
+    let immediate_plus_1 = immediate + 1;
+    let not_ra = !ra;
+    let result = not_ra.wrapping_add(immediate_plus_1) as u64;
+    let ca = (not_ra as u64).overflowing_add(immediate_plus_1 as u64).1;
+    let ca32 = (not_ra as u32).overflowing_add(immediate_plus_1 as u32).1;
+    Ok(InstructionOutput {
+        rt: Some(result),
+        carry: Some(CarryFlags { ca, ca32 }),
+        ..InstructionOutput::default()
+    })
+}
+
 create_instr_variants_ov_cr!(addc, addco, addc_, addco_, i64);
 
 pub fn addco(inputs: InstructionInput) -> InstructionResult {

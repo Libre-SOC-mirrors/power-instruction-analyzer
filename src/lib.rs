@@ -360,6 +360,11 @@ instructions! {
         "subfo."
     }
 
+    #[enumerant = SubFIC]
+    fn subfic(Ra, ImmediateS16) -> (Rt, Carry) {
+        "subfic"
+    }
+
     // addc
     #[enumerant = AddC]
     fn addc(Ra, Rb) -> (Rt, Carry) {
