@@ -66,6 +66,16 @@ pub fn addi(inputs: InstructionInput) -> InstructionResult {
     })
 }
 
+pub fn addis(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as i64;
+    let immediate = inputs.try_get_immediate_s16()? as i64;
+    let result = ra.wrapping_add(immediate << 16) as u64;
+    Ok(InstructionOutput {
+        rt: Some(result),
+        ..InstructionOutput::default()
+    })
+}
+
 create_instr_variants_ov_cr!(add, addo, add_, addo_, i64);
 
 pub fn addo(inputs: InstructionInput) -> InstructionResult {
@@ -77,6 +87,21 @@ pub fn addo(inputs: InstructionInput) -> InstructionResult {
     Ok(InstructionOutput {
         rt: Some(result),
         overflow: Some(propagate_so(OverflowFlags { so: ov, ov, ov32 }, inputs)?),
+        ..InstructionOutput::default()
+    })
+}
+
+create_instr_variants_cr!(addic, addic_, i64);
+
+pub fn addic(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as i64;
+    let immediate = inputs.try_get_immediate_s16()? as i64;
+    let result = ra.wrapping_add(immediate) as u64;
+    let ca = (ra as u64).overflowing_add(immediate as u64).1;
+    let ca32 = (ra as u32).overflowing_add(immediate as u32).1;
+    Ok(InstructionOutput {
+        rt: Some(result),
+        carry: Some(CarryFlags { ca, ca32 }),
         ..InstructionOutput::default()
     })
 }

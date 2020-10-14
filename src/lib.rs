@@ -309,6 +309,11 @@ instructions! {
         "addi"
     }
 
+    #[enumerant = AddIS]
+    fn addis(Ra, ImmediateS16) -> (Rt) {
+        "addis"
+    }
+
     // add
     #[enumerant = Add]
     fn add(Ra, Rb) -> (Rt) {
@@ -325,6 +330,16 @@ instructions! {
     #[enumerant = AddO_]
     fn addo_(Ra, Rb, Overflow) -> (Rt, Overflow, CR0) {
         "addo."
+    }
+
+    // addic
+    #[enumerant = AddIC]
+    fn addic(Ra, ImmediateS16) -> (Rt, Carry) {
+        "addic"
+    }
+    #[enumerant = AddIC_]
+    fn addic_(Ra, ImmediateS16, Overflow) -> (Rt, Carry, CR0) {
+        "addic."
     }
 
     // subf
