@@ -26,6 +26,21 @@ const TEST_VALUES: &[u64] = &[
     0x7FFF,
     0x8000,
     0x8001,
+    // picked for cmprb
+    0xFFED_CBA9_8765_4321,
+    // last byte of next 12 tests limits of ranges for cmprb
+    0x85AE_16A6_0C1A_0E1F,
+    0xCF24_50C7_9E7E_DF20,
+    0xD486_2724_930B_9021,
+    0xDDBA_3880_8588_DF42,
+    0x1F07_F322_68FE_5C43,
+    0x739D_46C6_1E05_AE44,
+    0xA131_E014_B201_9064,
+    0xC70D_BC09_C48A_C665,
+    0x1D61_5696_5920_E966,
+    0x70F1_F260_8938_4486,
+    0xEF25_5D74_1B45_CA87,
+    0x3C54_DFA8_C006_5688,
 ];
 
 const IMMED16_TEST_VALUES: &[u16] = &[

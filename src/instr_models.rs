@@ -850,3 +850,19 @@ pub fn cmplw(inputs: InstructionInput) -> InstructionResult {
         ..InstructionOutput::default()
     })
 }
+
+pub fn cmprb_0(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as u8;
+    let rb: u64 = inputs.try_get_rb()?;
+    let eq = ra >= rb as u8 && ra <= (rb >> 8) as u8;
+    let cr0 = ConditionRegister {
+        lt: false,
+        gt: false,
+        eq,
+        so: false,
+    };
+    Ok(InstructionOutput {
+        cr0: Some(cr0),
+        ..InstructionOutput::default()
+    })
+}

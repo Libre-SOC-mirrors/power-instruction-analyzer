@@ -837,6 +837,12 @@ instructions! {
     fn cmplw(Ra, Rb, Overflow) -> (CR0) {
         "cmplw"
     }
+
+    // cmprb 0, 0, ..., ...
+    #[enumerant = CmpRB0]
+    fn cmprb_0(Ra, Rb) -> (CR0) {
+        "cmprb 0, 0,"
+    }
 }
 
 // must be after instrs macro call since it uses a macro definition
