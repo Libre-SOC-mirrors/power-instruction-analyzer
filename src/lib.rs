@@ -817,6 +817,26 @@ instructions! {
     fn cmplwi(Ra, ImmediateU16, Overflow) -> (CR0) {
         "cmplwi"
     }
+
+    // cmp
+    #[enumerant = CmpD]
+    fn cmpd(Ra, Rb, Overflow) -> (CR0) {
+        "cmpd"
+    }
+    #[enumerant = CmpW]
+    fn cmpw(Ra, Rb, Overflow) -> (CR0) {
+        "cmpw"
+    }
+
+    // cmpl
+    #[enumerant = CmpLD]
+    fn cmpld(Ra, Rb, Overflow) -> (CR0) {
+        "cmpld"
+    }
+    #[enumerant = CmpLW]
+    fn cmplw(Ra, Rb, Overflow) -> (CR0) {
+        "cmplw"
+    }
 }
 
 // must be after instrs macro call since it uses a macro definition

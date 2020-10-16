@@ -806,3 +806,47 @@ pub fn cmplwi(inputs: InstructionInput) -> InstructionResult {
         ..InstructionOutput::default()
     })
 }
+
+pub fn cmpd(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as i64;
+    let rb = inputs.try_get_rb()? as i64;
+    let so = inputs.try_get_overflow()?.so;
+    let cr0 = ConditionRegister::from_ordering(ra.cmp(&rb), so);
+    Ok(InstructionOutput {
+        cr0: Some(cr0),
+        ..InstructionOutput::default()
+    })
+}
+
+pub fn cmpw(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as i32;
+    let rb = inputs.try_get_rb()? as i32;
+    let so = inputs.try_get_overflow()?.so;
+    let cr0 = ConditionRegister::from_ordering(ra.cmp(&rb), so);
+    Ok(InstructionOutput {
+        cr0: Some(cr0),
+        ..InstructionOutput::default()
+    })
+}
+
+pub fn cmpld(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as u64;
+    let rb = inputs.try_get_rb()? as u64;
+    let so = inputs.try_get_overflow()?.so;
+    let cr0 = ConditionRegister::from_ordering(ra.cmp(&rb), so);
+    Ok(InstructionOutput {
+        cr0: Some(cr0),
+        ..InstructionOutput::default()
+    })
+}
+
+pub fn cmplw(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as u32;
+    let rb = inputs.try_get_rb()? as u32;
+    let so = inputs.try_get_overflow()?.so;
+    let cr0 = ConditionRegister::from_ordering(ra.cmp(&rb), so);
+    Ok(InstructionOutput {
+        cr0: Some(cr0),
+        ..InstructionOutput::default()
+    })
+}
