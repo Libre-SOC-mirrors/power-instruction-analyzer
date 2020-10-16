@@ -854,11 +854,11 @@ pub fn cmplw(inputs: InstructionInput) -> InstructionResult {
 pub fn cmprb_0(inputs: InstructionInput) -> InstructionResult {
     let ra = inputs.try_get_ra()? as u8;
     let rb: u64 = inputs.try_get_rb()?;
-    let eq = ra >= rb as u8 && ra <= (rb >> 8) as u8;
+    let in_range = ra >= rb as u8 && ra <= (rb >> 8) as u8;
     let cr0 = ConditionRegister {
         lt: false,
-        gt: false,
-        eq,
+        gt: in_range,
+        eq: false,
         so: false,
     };
     Ok(InstructionOutput {

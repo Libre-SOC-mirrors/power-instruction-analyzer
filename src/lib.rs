@@ -840,8 +840,8 @@ instructions! {
 
     // cmprb 0, 0, ..., ...
     #[enumerant = CmpRB0]
-    fn cmprb_0(Ra, Rb) -> (CR0) {
-        "cmprb 0, 0,"
+    fn cmprb_0(Ra("r3"), Rb("r4")) -> (CR0) {
+        "cmprb_0" : "cmprb 0, 0, 3, 4"
     }
 }
 
