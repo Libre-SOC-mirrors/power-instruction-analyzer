@@ -762,3 +762,25 @@ pub fn maddld(inputs: InstructionInput) -> InstructionResult {
         ..InstructionOutput::default()
     })
 }
+
+pub fn cmpdi(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as i64;
+    let immediate = inputs.try_get_immediate_s16()? as i64;
+    let so = inputs.try_get_overflow()?.so;
+    let cr0 = ConditionRegister::from_ordering(ra.cmp(&immediate), so);
+    Ok(InstructionOutput {
+        cr0: Some(cr0),
+        ..InstructionOutput::default()
+    })
+}
+
+pub fn cmpwi(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as i32;
+    let immediate = inputs.try_get_immediate_s16()? as i32;
+    let so = inputs.try_get_overflow()?.so;
+    let cr0 = ConditionRegister::from_ordering(ra.cmp(&immediate), so);
+    Ok(InstructionOutput {
+        cr0: Some(cr0),
+        ..InstructionOutput::default()
+    })
+}

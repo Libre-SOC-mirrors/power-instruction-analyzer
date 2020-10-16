@@ -130,6 +130,14 @@ impl ConditionRegister {
             so,
         }
     }
+    pub fn from_ordering(ordering: Ordering, so: bool) -> Self {
+        Self {
+            lt: ordering == Ordering::Less,
+            gt: ordering == Ordering::Greater,
+            eq: ordering == Ordering::Equal,
+            so,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
@@ -788,6 +796,16 @@ instructions! {
     #[enumerant = MAddLD]
     fn maddld(Ra, Rb, Rc) -> (Rt) {
         "maddld"
+    }
+
+    // cmpi
+    #[enumerant = CmpDI]
+    fn cmpdi(Ra, ImmediateS16, Overflow) -> (CR0) {
+        "cmpdi"
+    }
+    #[enumerant = CmpWI]
+    fn cmpwi(Ra, ImmediateS16, Overflow) -> (CR0) {
+        "cmpwi"
     }
 }
 
