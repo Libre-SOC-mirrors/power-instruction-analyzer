@@ -807,6 +807,16 @@ instructions! {
     fn cmpwi(Ra, ImmediateS16, Overflow) -> (CR0) {
         "cmpwi"
     }
+
+    // cmpli
+    #[enumerant = CmpLDI]
+    fn cmpldi(Ra, ImmediateU16, Overflow) -> (CR0) {
+        "cmpldi"
+    }
+    #[enumerant = CmpLWI]
+    fn cmplwi(Ra, ImmediateU16, Overflow) -> (CR0) {
+        "cmplwi"
+    }
 }
 
 // must be after instrs macro call since it uses a macro definition

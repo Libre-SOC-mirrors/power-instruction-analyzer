@@ -784,3 +784,25 @@ pub fn cmpwi(inputs: InstructionInput) -> InstructionResult {
         ..InstructionOutput::default()
     })
 }
+
+pub fn cmpldi(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as u64;
+    let immediate = inputs.try_get_immediate_u16()? as u64;
+    let so = inputs.try_get_overflow()?.so;
+    let cr0 = ConditionRegister::from_ordering(ra.cmp(&immediate), so);
+    Ok(InstructionOutput {
+        cr0: Some(cr0),
+        ..InstructionOutput::default()
+    })
+}
+
+pub fn cmplwi(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()? as u32;
+    let immediate = inputs.try_get_immediate_u16()? as u32;
+    let so = inputs.try_get_overflow()?.so;
+    let cr0 = ConditionRegister::from_ordering(ra.cmp(&immediate), so);
+    Ok(InstructionOutput {
+        cr0: Some(cr0),
+        ..InstructionOutput::default()
+    })
+}
