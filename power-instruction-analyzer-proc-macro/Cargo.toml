@@ -6,6 +6,7 @@ version = "0.2.0"
 authors = ["Jacob Lifshay <programmerjake@gmail.com>"]
 edition = "2018"
 license = "LGPL-2.1-or-later"
+description = "procedural macros for power-instruction-analyzer"
 
 [lib]
 proc-macro = true

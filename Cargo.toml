@@ -7,6 +7,7 @@ authors = ["Jacob Lifshay <programmerjake@gmail.com>"]
 edition = "2018"
 license = "LGPL-2.1-or-later"
 exclude = ["output-for-*.json"]
+description = "Program to analyze the behavior of Power ISA instructions"
 
 [features]
 native_instrs = []
