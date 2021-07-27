@@ -2,7 +2,7 @@
 # See Notices.txt for copyright information
 [package]
 name = "power-instruction-analyzer"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Jacob Lifshay <programmerjake@gmail.com>"]
 edition = "2018"
 license = "LGPL-2.1-or-later"
@@ -26,7 +26,7 @@ pyo3 = { version = "0.11", optional = true }
 
 [dependencies.power-instruction-analyzer-proc-macro]
 path = "power-instruction-analyzer-proc-macro"
-version = "=0.2.0"
+version = "=0.2.1"
 
 [workspace]
 members = [
