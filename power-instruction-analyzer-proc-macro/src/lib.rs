@@ -13,7 +13,10 @@ use syn::parse_macro_input;
 pub fn instructions(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as Instructions);
     match input.to_tokens() {
-        Ok(retval) => retval,
+        Ok(retval) => {
+            eprintln!("macro output:\n----------\n{}\n----------", retval);
+            retval
+        }
         Err(err) => err.to_compile_error(),
     }
     .into()

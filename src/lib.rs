@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // See Notices.txt for copyright information
 
-#![cfg_attr(feature = "native_instrs", feature(llvm_asm))]
+#![cfg_attr(feature = "native_instrs", feature(asm))]
 
 #[cfg(all(feature = "native_instrs", not(target_arch = "powerpc64")))]
 compile_error!("native_instrs feature requires target_arch to be powerpc64");

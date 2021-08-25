@@ -2,7 +2,7 @@
 // See Notices.txt for copyright information
 
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{quote, quote_spanned, ToTokens};
 use std::{
     collections::HashMap,
     fmt::Write,
@@ -10,7 +10,7 @@ use std::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicU64, Ordering},
 };
-use syn::LitStr;
+use syn::{punctuated::Punctuated, LitStr, Token};
 
 macro_rules! append_assembly {
     ($retval:ident;) => {};
@@ -467,9 +467,20 @@ impl ToTokens for AssemblyWithTextSpan {
                 },
             text_span,
         } = self;
-        let text = LitStr::new(&self.to_text(), text_span.clone());
+        let mut args: Punctuated<TokenStream, Token![,]> = self
+            .to_text()
+            .lines()
+            .map(|line| {
+                quote_spanned! {*text_span=>
+                    #line
+                }
+            })
+            .collect();
+        args.extend(outputs.iter().map(ToTokens::to_token_stream));
+        args.extend(inputs.iter().map(ToTokens::to_token_stream));
+        args.extend(clobbers.iter().map(ToTokens::to_token_stream));
         let value = quote! {
-            llvm_asm!(#text : #(#outputs),* : #(#inputs),* : #(#clobbers),*)
+            asm!(#args)
         };
         value.to_tokens(tokens);
     }

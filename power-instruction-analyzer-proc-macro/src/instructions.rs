@@ -294,21 +294,21 @@ type InstructionInput = InstructionArg<InstructionInputName>;
 type InstructionOutput = InstructionArg<InstructionOutputName>;
 
 impl InstructionInput {
-    fn constraint(&self) -> LitStr {
+    fn constraint(&self) -> TokenStream {
         if let Some(register) = &self.register {
-            LitStr::new(&format!("{{{}}}", register.value()), register.span())
+            register.to_token_stream()
         } else {
-            LitStr::new("b", Span::call_site())
+            quote! { reg_nonzero }
         }
     }
 }
 
 impl InstructionOutput {
-    fn constraint(&self) -> LitStr {
+    fn constraint(&self) -> TokenStream {
         if let Some(register) = &self.register {
-            LitStr::new(&format!("=&{{{}}}", register.value()), register.span())
+            register.to_token_stream()
         } else {
-            LitStr::new("=&b", Span::call_site())
+            quote! { reg_nonzero }
         }
     }
 }
@@ -448,7 +448,7 @@ impl Instruction {
                 InstructionOutputName::Rt(_) => {
                     before_asm.push(quote! {let rt: u64;});
                     let constraint = output.constraint();
-                    asm_instr_args.push(assembly! {"$" output{#constraint(rt)} });
+                    asm_instr_args.push(assembly! {"{" output{out(#constraint) rt} "}" });
                     after_asm.push(quote! {retval.rt = Some(rt);});
                 }
                 InstructionOutputName::Carry(_) => {
@@ -529,17 +529,17 @@ impl Instruction {
                 InstructionInputName::Ra(_) => {
                     before_asm.push(quote! {let ra: u64 = inputs.try_get_ra()?;});
                     let constraint = input.constraint();
-                    asm_instr_args.push(assembly! {"$" input{#constraint(ra)} });
+                    asm_instr_args.push(assembly! {"{" input{in(#constraint) ra} "}"});
                 }
                 InstructionInputName::Rb(_) => {
                     before_asm.push(quote! {let rb: u64 = inputs.try_get_rb()?;});
                     let constraint = input.constraint();
-                    asm_instr_args.push(assembly! {"$" input{#constraint(rb)} });
+                    asm_instr_args.push(assembly! {"{" input{in(#constraint) rb} "}"});
                 }
                 InstructionInputName::Rc(_) => {
                     before_asm.push(quote! {let rc: u64 = inputs.try_get_rc()?;});
                     let constraint = input.constraint();
-                    asm_instr_args.push(assembly! {"$" input{#constraint(rc)} });
+                    asm_instr_args.push(assembly! {"{" input{in(#constraint) rc} "}"});
                 }
                 InstructionInputName::ImmediateS16(_) | InstructionInputName::ImmediateU16(_) => {
                     input.error_if_register_is_specified()?;
@@ -597,13 +597,13 @@ impl Instruction {
             });
             let xer_out;
             before_instr_asm_lines.push(assembly! {
-                "mfxer $" output(xer_out = {"=&b"(xer_out)})
+                "mfxer {" output(xer_out = {out(reg_nonzero) xer_out}) "}"
             });
             before_instr_asm_lines.push(assembly! {
-                "and $" (xer_out) ", $" (xer_out) ", $" input{"b"(xer_mask_in)}
+                "and {" (xer_out) "}, {" (xer_out) "}, {" input{in(reg_nonzero) xer_mask_in} "}"
             });
             before_instr_asm_lines.push(assembly! {
-                "or $" (xer_out) ", $" (xer_out) ", $" input{"b"(xer_in)}
+                "or {" (xer_out) "}, {" (xer_out) "}, {" input{in(reg_nonzero) xer_in} "}"
             });
             before_instr_asm_lines.push(assembly! {
                 "mtxer $" (xer_out) clobber{"xer"}
