@@ -424,5 +424,15 @@ fn power_instruction_analyzer(_py: Python, m: &PyModule) -> PyResult<()> {
     )?;
 
     wrap_all_instr_fns!(m);
+
+    let mut all = Vec::new();
+    for (k, _) in m.dict() {
+        let k = k.extract::<String>()?;
+        if !k.starts_with('_') {
+            all.push(k);
+        }
+    }
+    m.setattr("__all__", all)?;
+
     Ok(())
 }
