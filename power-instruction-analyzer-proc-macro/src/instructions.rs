@@ -606,10 +606,10 @@ impl Instruction {
                 "or {" (xer_out) "}, {" (xer_out) "}, {" input{in(reg_nonzero) xer_in} "}"
             });
             before_instr_asm_lines.push(assembly! {
-                "mtxer $" (xer_out) clobber{"xer"}
+                "mtxer {" (xer_out) "}" clobber{out("xer") _}
             });
             after_instr_asm_lines.push(assembly! {
-                "mfxer $" (xer_out)
+                "mfxer {" (xer_out) "}"
             });
             if need_carry_output {
                 after_asm.push(quote! {
@@ -627,7 +627,7 @@ impl Instruction {
                 let cr: u32;
             });
             after_instr_asm_lines.push(assembly! {
-                "mfcr $" output{"=&b"(cr)} clobber{"cr"}
+                "mfcr {" output{out(reg_nonzero) cr} "}" clobber{out("cr") _}
             });
         }
         let mut asm_instrs = asm_instr;
@@ -653,12 +653,14 @@ impl Instruction {
             // and https://bugs.llvm.org/show_bug.cgi?id=47812
             before_asm.push(quote! {let lr_temp: u64;});
             let lr_temp;
-            before_instr_asm_lines.push(assembly! {"mflr $" output(lr_temp = {"=&b"(lr_temp)})});
-            after_instr_asm_lines.push(assembly! {"mtlr $" (lr_temp)});
+            before_instr_asm_lines
+                .push(assembly! {"mflr {" output(lr_temp = {out(reg_nonzero) lr_temp}) "}"});
+            after_instr_asm_lines.push(assembly! {"mtlr {" (lr_temp) "}"});
             before_asm.push(quote! {let ctr_temp: u64;});
             let ctr_temp;
-            before_instr_asm_lines.push(assembly! {"mfctr $" output(ctr_temp = {"=&b"(ctr_temp)})});
-            after_instr_asm_lines.push(assembly! {"mtctr $" (ctr_temp)});
+            before_instr_asm_lines
+                .push(assembly! {"mfctr {" output(ctr_temp = {out(reg_nonzero) ctr_temp}) "}"});
+            after_instr_asm_lines.push(assembly! {"mtctr {" (ctr_temp) "}"});
             let template = mem::replace(&mut asm_instrs, assembly! {});
             let target_temp;
             before_asm.push(quote! {let target_temp: u64;});
@@ -668,11 +670,11 @@ impl Instruction {
                 asm_instrs;
                 "bl 3f\n"
                 "4:\n"
-                "mulli $" output(target_temp = {"=&b"(target_temp)}) ", $" input{"b"(immediate)} ", 1f - 0f\n"
-                "addi $" (target_temp) ", $" (target_temp) ", 0f - 4b\n"
-                "mflr $" output(target_temp2 = {"=&b"(target_temp2)}) "\n"
-                "add $" (target_temp) ", $" (target_temp) ", $" (target_temp2) "\n"
-                "mtctr $" (target_temp) "\n"
+                "mulli {" output(target_temp = {out(reg_nonzero) target_temp}) "}, {" input{in(reg_nonzero) immediate} "}, 1f - 0f\n"
+                "addi {" (target_temp) "}, {" (target_temp) "}, 0f - 4b\n"
+                "mflr {" output(target_temp2 = {out(reg_nonzero) target_temp2}) "}\n"
+                "add {" (target_temp) "}, {" (target_temp) "}, {" (target_temp2) "}\n"
+                "mtctr {" (target_temp) "}\n"
                 "bctrl\n"
                 "b 2f\n"
                 "3:\n"
@@ -721,7 +723,7 @@ impl Instruction {
         };
         Ok(quote! {
             pub fn #fn_name(inputs: InstructionInput) -> InstructionResult {
-                #![allow(unused_variables, unused_assignments)]
+                #![allow(unused_variables, unused_assignments, unused_mut)]
                 #(#before_asm)*
                 unsafe {
                     #asm;

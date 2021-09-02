@@ -7,6 +7,8 @@ mod instructions;
 
 use instructions::Instructions;
 use proc_macro::TokenStream;
+use quote::quote;
+use std::{env, fs, path::Path};
 use syn::parse_macro_input;
 
 #[proc_macro]
@@ -14,8 +16,14 @@ pub fn instructions(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as Instructions);
     match input.to_tokens() {
         Ok(retval) => {
-            eprintln!("macro output:\n----------\n{}\n----------", retval);
-            retval
+            fs::write(
+                Path::new(&env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("out.rs"),
+                retval.to_string(),
+            )
+            .unwrap();
+            quote! {
+                include!(concat!(env!("CARGO_MANIFEST_DIR"), "/out.rs"));
+            }
         }
         Err(err) => err.to_compile_error(),
     }

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // See Notices.txt for copyright information
 
-use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned, ToTokens};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::{
     collections::HashMap,
     fmt::Write,
@@ -10,7 +10,14 @@ use std::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicU64, Ordering},
 };
-use syn::{punctuated::Punctuated, LitStr, Token};
+use syn::{
+    ext::IdentExt,
+    parenthesized,
+    parse::{Parse, ParseStream},
+    punctuated::Punctuated,
+    token::Paren,
+    LitStr, Token,
+};
 
 macro_rules! append_assembly {
     ($retval:ident;) => {};
@@ -397,7 +404,7 @@ impl Assembly {
                 }
                 AssemblyTextFragment::ArgIndex(id) => {
                     if let Some(index) = id_index_map.get(id) {
-                        write!(retval, "{}", index).unwrap();
+                        write!(retval, "arg{}", index).unwrap();
                     } else {
                         panic!(
                             "unknown id in inline assembly arguments: id={:?}\n{:#?}",
@@ -476,12 +483,66 @@ impl ToTokens for AssemblyWithTextSpan {
                 }
             })
             .collect();
-        args.extend(outputs.iter().map(ToTokens::to_token_stream));
-        args.extend(inputs.iter().map(ToTokens::to_token_stream));
+        let mut named_args = Vec::new();
+        let mut unnamed_args = Vec::new();
+        for (index, tokens) in outputs
+            .iter()
+            .map(|v| &v.tokens)
+            .chain(inputs.iter().map(|v| &v.tokens))
+            .enumerate()
+        {
+            match syn::parse2::<AsmArg>(tokens.clone())
+                .unwrap_or_else(|e| panic!("failed to parse AsmArg: {}\nTokens:\n{}", e, tokens))
+                .reg
+            {
+                AsmArgReg::RegClass(_) => {
+                    let id = format_ident!("arg{}", index);
+                    named_args.push(quote! { #id = #tokens });
+                }
+                AsmArgReg::RegLit(_) => unnamed_args.push(tokens.clone()),
+            }
+        }
+        args.extend(named_args);
+        args.extend(unnamed_args);
         args.extend(clobbers.iter().map(ToTokens::to_token_stream));
         let value = quote! {
             asm!(#args)
         };
         value.to_tokens(tokens);
+    }
+}
+
+enum AsmArgReg {
+    RegClass(Ident),
+    RegLit(LitStr),
+}
+
+impl Parse for AsmArgReg {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.peek(Ident::peek_any) {
+            Ok(Self::RegClass(input.call(Ident::parse_any)?))
+        } else {
+            Ok(Self::RegLit(input.parse()?))
+        }
+    }
+}
+
+#[allow(dead_code)]
+struct AsmArg {
+    io_kind: Ident,
+    paren: Paren,
+    reg: AsmArgReg,
+    body: TokenStream,
+}
+
+impl Parse for AsmArg {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let input2;
+        Ok(Self {
+            io_kind: input.call(Ident::parse_any)?,
+            paren: parenthesized!(input2 in input),
+            reg: input2.parse()?,
+            body: input.parse()?,
+        })
     }
 }
