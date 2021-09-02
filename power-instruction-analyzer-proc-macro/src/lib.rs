@@ -16,13 +16,18 @@ pub fn instructions(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as Instructions);
     match input.to_tokens() {
         Ok(retval) => {
-            fs::write(
-                Path::new(&env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("out.rs"),
-                retval.to_string(),
-            )
-            .unwrap();
-            quote! {
-                include!(concat!(env!("CARGO_MANIFEST_DIR"), "/out.rs"));
+            if cfg!(feature = "debug-proc-macro") {
+                fs::write(
+                    Path::new(&env::var_os("CARGO_MANIFEST_DIR").unwrap())
+                        .join("proc-macro-out.rs"),
+                    retval.to_string(),
+                )
+                .unwrap();
+                quote! {
+                    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/proc-macro-out.rs"));
+                }
+            } else {
+                retval
             }
         }
         Err(err) => err.to_compile_error(),
