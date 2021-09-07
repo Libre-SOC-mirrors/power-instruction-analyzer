@@ -866,3 +866,107 @@ pub fn cmprb_0(inputs: InstructionInput) -> InstructionResult {
         ..InstructionOutput::default()
     })
 }
+
+macro_rules! unpack_bits {
+    ($v:expr => [$($bit:ident),*]) => {
+        unpack_bits!($v => [$($bit,)*] @reversed []);
+    };
+    ($v:expr => [$bit:ident, $($forward_bits:ident,)*] @reversed [$($reversed_bits:ident,)*]) => {
+        unpack_bits!($v => [$($forward_bits,)*] @reversed [$bit, $($reversed_bits,)*]);
+    };
+    ($v:expr => [] @reversed [$($reversed_bits:ident,)*]) => {
+        let mut bits = $v;
+        $(
+            let $reversed_bits = (bits & 1) != 0;
+            bits >>= 1;
+        )*
+        let _ = bits;
+    };
+}
+
+macro_rules! pack_bits {
+    ($($bit:expr),*) => {
+        {
+            let mut bits = 0;
+            $(
+                bits <<= 1;
+                if $bit {
+                    bits |= 1;
+                }
+            )*
+            bits
+        }
+    };
+}
+
+fn dpd_to_bcd(dpd: u16) -> u16 {
+    // expressions taken from PowerISA v2.07B section B.2 (page 697 (728))
+    unpack_bits!(dpd => [p, q, r, s, t, u, v, w, x, y]);
+    let a = (!s & v & w) | (t & v & w & s) | (v & w & !x);
+    let b = (p & s & x & !t) | (p & !w) | (p & !v);
+    let c = (q & s & x & !t) | (q & !w) | (q & !v);
+    let d = r;
+    let e = (v & !w & x) | (s & v & w & x) | (!t & v & x & w);
+    let f = (p & t & v & w & x & !s) | (s & !x & v) | (s & !v);
+    let g = (q & t & w & v & x & !s) | (t & !x & v) | (t & !v);
+    let h = u;
+    let i = (t & v & w & x) | (s & v & w & x) | (v & !w & !x);
+    let j = (p & !s & !t & w & v) | (s & v & !w & x) | (p & w & !x & v) | (w & !v);
+    let k = (q & !s & !t & v & w) | (t & v & !w & x) | (q & v & w & !x) | (x & !v);
+    let m = y;
+    pack_bits![a, b, c, d, e, f, g, h, i, j, k, m]
+}
+
+fn bcd_to_dpd(bcd: u16) -> u16 {
+    // expressions taken from PowerISA v2.07B section B.1 (page 697 (728))
+    unpack_bits!(bcd => [a, b, c, d, e, f, g, h, i, j, k, m]);
+    let p = (f & a & i & !e) | (j & a & !i) | (b & !a);
+    let q = (g & a & i & !e) | (k & a & !i) | (c & !a);
+    let r = d;
+    let s = (j & !a & e & !i) | (f & !i & !e) | (f & !a & !e) | (e & i);
+    let t = (k & !a & e & !i) | (g & !i & !e) | (g & !a & !e) | (a & i);
+    let u = h;
+    let v = a | e | i;
+    let w = (!e & j & !i) | (e & i) | a;
+    let x = (!a & k & !i) | (a & i) | e;
+    let y = m;
+    pack_bits![p, q, r, s, t, u, v, w, x, y]
+}
+
+pub fn cdtbcd(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()?;
+    let mut rt = 0;
+    rt |= dpd_to_bcd((ra & 0x3FF) as u16) as u64;
+    rt |= (dpd_to_bcd(((ra >> 10) & 0x3FF) as u16) as u64) << 12;
+    rt |= (dpd_to_bcd(((ra >> 32) & 0x3FF) as u16) as u64) << 32;
+    rt |= (dpd_to_bcd(((ra >> 42) & 0x3FF) as u16) as u64) << 44;
+    Ok(InstructionOutput {
+        rt: Some(rt),
+        ..InstructionOutput::default()
+    })
+}
+
+pub fn cbcdtd(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()?;
+    let mut rt = 0;
+    rt |= bcd_to_dpd((ra & 0xFFF) as u16) as u64;
+    rt |= (bcd_to_dpd(((ra >> 12) & 0xFFF) as u16) as u64) << 10;
+    rt |= (bcd_to_dpd(((ra >> 32) & 0xFFF) as u16) as u64) << 32;
+    rt |= (bcd_to_dpd(((ra >> 44) & 0xFFF) as u16) as u64) << 42;
+    Ok(InstructionOutput {
+        rt: Some(rt),
+        ..InstructionOutput::default()
+    })
+}
+
+pub fn addg6s(inputs: InstructionInput) -> InstructionResult {
+    let ra = inputs.try_get_ra()?;
+    let rb = inputs.try_get_rb()?;
+    let sum = ra as u128 + rb as u128;
+    let need_sixes = ((!sum >> 4) as u64 ^ (ra >> 4) ^ (rb >> 4)) & 0x1111_1111_1111_1111;
+    let rt = 6 * need_sixes;
+    Ok(InstructionOutput {
+        rt: Some(rt),
+        ..InstructionOutput::default()
+    })
+}

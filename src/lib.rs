@@ -843,6 +843,24 @@ instructions! {
     fn cmprb_0(Ra("r3"), Rb("r4")) -> (CR0) {
         "cmprb_0" : "cmprb 0, 0, 3, 4"
     }
+
+    #[enumerant = CDTBcd]
+    fn cdtbcd(Ra("r3")) -> (Rt("r4")) {
+        // work around LLVM not supporting cdtbcd instruction:
+        "cdtbcd" : ".long 0x7C640234 # cdtbcd r4, r3"
+    }
+
+    #[enumerant = CBcdTD]
+    fn cbcdtd(Ra("r3")) -> (Rt("r4")) {
+        // work around LLVM not supporting cbcdtd instruction:
+        "cbcdtd" : ".long 0x7C640274 # cbcdtd r4, r3"
+    }
+
+    #[enumerant = AddG6s]
+    fn addg6s(Ra("r3"), Rb("r4")) -> (Rt("r5")) {
+        // work around LLVM not supporting addg6s instruction:
+        "addg6s" : ".long 0x7CA32094 # addg6s r5, r3, r4"
+    }
 }
 
 // must be after instrs macro call since it uses a macro definition
