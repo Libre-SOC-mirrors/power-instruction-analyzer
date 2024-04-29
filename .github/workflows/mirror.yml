@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: mirror
         id: mirror
-        uses: Libre-SOC-mirrors/github-mirror-action@main
+        uses: bridgelightcloud/github-mirror-action@v3
         with:
           origin: 'https://git.libre-soc.org/git/power-instruction-analyzer.git'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
